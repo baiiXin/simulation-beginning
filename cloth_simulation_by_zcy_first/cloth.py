@@ -135,7 +135,7 @@ class Mass:
             start_time = time.time()
 
             # 计算能量
-            Energy = self.Energy_compute(Spring, method=2)
+            Energy = self.Energy_compute(Spring)
             # 组装
             self.assemebel_HF(Spring)
 
@@ -189,11 +189,11 @@ class Mass:
         self.pos = self.pos_hat.copy()
 
         # 碰撞检测和响应
-        self.Sphere_Collision(ball_c=np.array([0.5, -0.5, 6]), ball_r=2.50, u_N=0.1, u_T=0.45, method=2)
+        self.Sphere_Collision(ball_c=np.array([0.5, -0.5, 6]), ball_r=1.0, u_N=0.1, u_T=0.45)
 
         return Newton_step, times_ms, Error_dx_norm, Residual_norm, Energy_norm
 
-    def Sphere_Collision(self, ball_c, ball_r, u_N, u_T, method):
+    def Sphere_Collision(self, ball_c, ball_r, u_N, u_T, method=2):
         '''
         功能:  碰撞检测和响应
         input: 质点, 碰撞球的位置和半径, 碰撞系数, 碰撞检测方法
@@ -261,14 +261,14 @@ class Mass:
                     vel_T *= alpha 
                     self.vel[j] = vel_N + vel_T
 
-    def Energy_compute(self, Spring: Spring, method):   
+    def Energy_compute(self, Spring: Spring, method=0):   
 
         if method == 0:
             '''
             功能:  计算能量
             input: 质点, 弹簧
             output: Energy
-            '''          
+            '''
             # 获取质点数量和空间维度
             Nm = self.num  # 质点数量
             space_dim = 3  # 空间维度，应该是3
@@ -370,4 +370,65 @@ class Mass:
             Energy = Energy_E + Energy_V + Energy_G - Energy_G0
             return Energy
 
-
+    def self_collision_vt(self, Spring: Spring):
+        '''
+        input: 质点＋弹簧
+        output: 直接修改 self.Hessian 和 self.force; 
+                不是实际的force和hessian; 对应牛顿迭代的A和b
+        '''
+        # 获取质点数量和空间维度
+        Nm = self.num  # 质点数量
+        space_dim = 3  # 空间维度，应该是3
+        NS = Spring.num  # 弹簧数量
+        
+        # 初始化矩阵和向量
+        all_points = Nm * space_dim
+        F = np.zeros(all_points)  # 力向量
+        
+        I = np.zeros((all_points, all_points))  # 质量矩阵
+        H = np.zeros((all_points, all_points))  # 海森矩阵
+        
+        f = np.zeros(all_points)  # 弹簧力
+        g = np.zeros(all_points)  # 重力
+        
+        # 循环计算弹簧力和海森矩阵
+        for i in range(NS): 
+            a = Spring.ele[i][0]  # 弹簧连接的第一个质点
+            b = Spring.ele[i][1]  # 弹簧连接的第二个质点
+            x_ab = self.pos_hat[a] - self.pos_hat[b]  # 两点之间的向量
+            x_ab_norm = np.linalg.norm(x_ab)  # 向量的范数（长度）
+            
+            # 计算弹簧力
+            f_spring = -Spring.stiff_k * (x_ab/x_ab_norm) * (x_ab_norm - Spring.rest_len[i])
+            
+            # 计算海森矩阵
+            h_spring = -Spring.stiff_k * np.outer(x_ab, x_ab) / (x_ab_norm**2) - \
+                    Spring.stiff_k * (1 - Spring.rest_len[i]/x_ab_norm) * \
+                    (np.eye(space_dim) - np.outer(x_ab, x_ab)/(x_ab_norm**2))
+            
+            # 更新力向量
+            f[(a*space_dim):(a*space_dim+space_dim)] += f_spring
+            f[(b*space_dim):(b*space_dim+space_dim)] -= f_spring
+            
+            # 更新海森矩阵
+            H[(a*space_dim):(a*space_dim+space_dim), (a*space_dim):(a*space_dim+space_dim)] += h_spring
+            H[(a*space_dim):(a*space_dim+space_dim), (b*space_dim):(b*space_dim+space_dim)] -= h_spring
+            H[(b*space_dim):(b*space_dim+space_dim), (a*space_dim):(a*space_dim+space_dim)] -= h_spring
+            H[(b*space_dim):(b*space_dim+space_dim), (b*space_dim):(b*space_dim+space_dim)] += h_spring
+        
+        # 计算质点的重力和质量矩阵
+        for j in range(Nm):
+            g_vec = np.zeros(space_dim)
+            g_vec[space_dim-1] = -self.mass * self.gravity  # 在z方向上施加重力
+            g[(j*space_dim):(j*space_dim+space_dim)] = g_vec
+            
+            # 质量/单位矩阵
+            I_eyes = np.eye(space_dim)
+            I[(j*space_dim):(j*space_dim+space_dim), (j*space_dim):(j*space_dim+space_dim)] = I_eyes
+            
+            # 计算F向量
+            F[(j*space_dim):(j*space_dim+space_dim)] = self.pos_hat[j] - self.pos[j] - self.dt * self.vel[j]
+        
+        # 返回计算结果
+        self.force = F - self.dt * self.dt * (1/self.mass) * (f+g)  # 计算b向量
+        self.Hessian = I - self.dt * self.dt * (1/self.mass) *H  # 计算A矩阵
