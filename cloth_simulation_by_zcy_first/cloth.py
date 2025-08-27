@@ -279,11 +279,17 @@ class Mass:
             norm_F_vec = np.zeros(all_points)  
             Energy_E = 0.0
             Energy_F = 0.0
+
+            Energy_G0 = 0.0
+            Energy_G = 0.0
             
             # 计算质点的重力和质量矩阵
             for j in range(Nm):
                 # 计算F向量
                 norm_F_vec[(j*space_dim):(j*space_dim+space_dim)] = self.pos_hat[j] - self.pos[j] - self.dt * self.vel[j]
+
+                #Energy_G0 +=  self.mass * self.gravity * self.pos[j][2]
+                Energy_G  +=  self.mass * self.gravity * self.pos_hat[j][2]
             # 计算能量
             Energy_F +=  (1.0/ (2.0 * self.dt * self.dt)) * self.mass * np.linalg.norm(norm_F_vec) * np.linalg.norm(norm_F_vec)
 
@@ -296,7 +302,7 @@ class Mass:
                 # 计算弹簧力
                 Energy_E += 0.5 * Spring.stiff_k * (x_ab_norm - Spring.rest_len[i]) * (x_ab_norm - Spring.rest_len[i])
             # 计算能量
-            Energy = Energy_E + Energy_F
+            Energy = Energy_E + Energy_F + Energy_G - Energy_G0
             return Energy
 
         elif method == 1:

@@ -16,7 +16,7 @@ c = -2.0
 d = 2.0
 h1 = 0.5
 h2 = 0.5
-fixed_num = 0#int((b-a)/h1+1) 
+fixed_num = int((b-a)/h1+1) 
 
 # 材料参数
 z=8.0

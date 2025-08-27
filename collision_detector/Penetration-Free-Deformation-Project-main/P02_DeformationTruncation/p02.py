@@ -72,24 +72,54 @@ collision_detector.edge_edge_collision_detection(5.0)
 # TODO: compute the conservative bounds
 # cpmpute bounds
 print('=====TODO: compute the conservative bounds=====')
+from warp.sim.integrator_vbd import get_vertex_num_adjacent_edges, get_vertex_adjacent_edge_id_order, get_vertex_num_adjacent_faces, get_vertex_adjacent_face_id_order, ForceElementAdjacencyInfo
+# how to iterate over neighbor elements
 @wp.kernel
-def compute_bounds(
-    d_v: wp.array(dtype=float),
-    d_e: wp.array(dtype=float),
-    d_t: wp.array(dtype=float),
-    b_v: wp.array(dtype=float)
+def iterate_vertex_neighbor_primitives(
+    adjacency: ForceElementAdjacencyInfo,
+    min_dis_v_t: wp.array(dtype=float),
+    min_dis_e_e: wp.array(dtype=float),
+    min_dis_t_v: wp.array(dtype=float),
+    gama_p: float,
+    # output
+    bounds: wp.array(dtype=float),
 ):
-    tid = wp.tid()  # 获取当前线程的索引
-    b_v[tid] = wp.min(wp.min(d_v[tid], d_e[tid]), d_t[tid])  # 计算三个数组对应位置的最大值
-b_v = wp.empty(shape=len(collision_detector.vertex_colliding_triangles_min_dist), dtype=float, device=device)
+    particle_idx = wp.tid()
+
+    bounds[particle_idx] = min_dis_v_t[particle_idx]
+
+    # iterating over neighbor faces
+    num_adj_faces = get_vertex_num_adjacent_faces(adjacency, particle_idx)
+    for face_counter in range(num_adj_faces):
+        adj_face_idx, vertex_order = get_vertex_adjacent_face_id_order(adjacency, particle_idx, face_counter)
+        bounds[particle_idx] = wp.min(bounds[particle_idx], min_dis_t_v[adj_face_idx])
+
+    # iterating over neighbor edges
+    num_adj_edges = get_vertex_num_adjacent_edges(adjacency, particle_idx)
+    for edge_counter in range(num_adj_edges):
+        edge_idx, v_order = get_vertex_adjacent_edge_id_order(adjacency, particle_idx, edge_counter)
+        bounds[particle_idx] = wp.min(bounds[particle_idx], min_dis_e_e[edge_idx])
+
+    bounds[particle_idx] = gama_p * bounds[particle_idx]
+
+gama_p = 0.4
+bounds = wp.empty(shape=model.particle_count, dtype=float, device=device)
+
 wp.launch(
-    compute_bounds,
+    kernel=iterate_vertex_neighbor_primitives,
+    inputs=[
+        vbd_integrator.adjacency, 
+        collision_detector.vertex_colliding_triangles_min_dist, 
+        collision_detector.edge_colliding_edges_min_dist, 
+        collision_detector.triangle_colliding_vertices_min_dist, 
+        gama_p],
+    outputs=[
+        bounds],
     dim=model.particle_count,
-    inputs=[collision_detector.vertex_colliding_triangles_min_dist, collision_detector.edge_colliding_edges_min_dist, collision_detector.triangle_colliding_vertices_min_dist, b_v],
     device=device
 )
-print(b_v)
-print('b_v:', len(b_v))
+print(bounds)
+print('bounds:', len(bounds))
 
 
 # TODO: truncate the displacement
@@ -102,11 +132,11 @@ def truncate_displacement(
     vertices: wp.array(dtype=wp.vec3),
     displacements: wp.array(dtype=wp.vec3),
     new_pos: wp.array(dtype=wp.vec3),
-    b_v: wp.array(dtype=float)
+    bounds: wp.array(dtype=float)
 ):
     tid = wp.tid()  # 获取当前线程的索引
-    if wp.length(displacements[tid]) > b_v[tid]:
-        new_pos[tid] = vertices[tid] + displacements[tid] * (b_v[tid] / wp.length(displacements[tid]))
+    if wp.length(displacements[tid]) > bounds[tid]:
+        new_pos[tid] = vertices[tid] + displacements[tid] * (bounds[tid] / wp.length(displacements[tid]))
     else:
         new_pos[tid] = vertices[tid] + displacements[tid]
 
@@ -118,7 +148,7 @@ displacement_init_array = wp.array(displacement_init, dtype=wp.vec3, device=devi
 wp.launch(
     truncate_displacement,
     dim=model.particle_count,
-    inputs=[vertices_array, displacement_init_array, new_pos, b_v],
+    inputs=[vertices_array, displacement_init_array, new_pos, bounds],
     device=device
 )
 print(new_pos)
