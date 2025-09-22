@@ -54,3 +54,4 @@ conda env create -f simulation25.yml --prefix D:\\data\envs\simulation25
 
 [4] Chenfanfu Jiang et al.，[Preface - Physics-Based Simulation](https://phys-sim-book.github.io/)，2025.
 
+[5] DeepMind，https://sites.google.com/view/meshgraphnets，2021.

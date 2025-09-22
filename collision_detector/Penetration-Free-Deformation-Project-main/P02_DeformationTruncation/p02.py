@@ -68,6 +68,9 @@ collision_detector = TriMeshCollisionDetector(model)
 collision_detector.vertex_triangle_collision_detection(5.0)
 collision_detector.edge_edge_collision_detection(5.0)
 
+# 检查
+print('model.tri_indices', model.tri_indices.shape)
+print('model.edge_indices', model.edge_indices.shape)
 
 # TODO: compute the conservative bounds
 # cpmpute bounds

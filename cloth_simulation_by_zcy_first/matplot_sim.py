@@ -27,7 +27,7 @@ h2 = 0.5
 fixed_num = int((b-a)/h1+1) 
 
 # 材料参数
-z=8.0
+z=10
 mass_m = 1
 stiff_k = 8000
 
@@ -37,14 +37,14 @@ gravity = 9.8
 
 # simulation
 # 初始参数
-dt = 0.03
-N = 100
-ite_num = 12
-tolerance_newton = 1e-4
+dt = 0.015
+N = 30
+ite_num = 10
+tolerance_newton = 1e-6
 
 # 球体参数
 sphere_center = np.array([0.5, -0.5, 6.0])  # 球心坐标
-sphere_radius = 0.99                        # 球半径
+sphere_radius = 2.49                        # 球半径
 
 # 仿真计算
 [triangles, cloth_data, Newton_steps, times_ms, Error_dx_norm, Residual_norm, Energy_norm] = generate_cloth(a, b, c, d, h1, h2, z, mass_m, stiff_k, dump, gravity, dt, N, ite_num, tolerance_newton, fixed_num)
