@@ -46,12 +46,15 @@ conda env create -f simulation25.yml --prefix D:\\data\envs\simulation25
 
 ### 参考/将要参考
 
-[1] Huamin Wang，https://games-cn.org/games103/，2021.
+[1] Huamin Wang，https://games-cn.org/games103/，2021. 
 
-[2] NVIDIA Warp Documentation，https://nvidia.github.io/warp/，2025.
+[2] NVIDIA Warp Documentation，https://nvidia.github.io/warp/，2025. 
 
-[3] Ladislav Kavan，https://youtu.be/sSKyQIxdhdA?si=p5EFise9r4GTpmh8，2017.
+[3] Anka He Chen，[AnkaChan/Penetration-Free-Deformation-Project](https://github.com/AnkaChan/Penetration-Free-Deformation-Project)，2025. 
 
-[4] Chenfanfu Jiang et al.，[Preface - Physics-Based Simulation](https://phys-sim-book.github.io/)，2025.
+[4] Ladislav Kavan，https://youtu.be/sSKyQIxdhdA?si=p5EFise9r4GTpmh8，2017. 
 
-[5] DeepMind，https://sites.google.com/view/meshgraphnets，2021.
+[5] Chenfanfu Jiang et al.，[Preface - Physics-Based Simulation](https://phys-sim-book.github.io/)，2025. 
+
+[6] DeepMind，https://sites.google.com/view/meshgraphnets，2021. 
+
