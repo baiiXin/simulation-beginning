@@ -992,17 +992,45 @@ def zcy_evaluate_edge_edge_contact_2_vertices(
     e2_vec = e2_v2_pos - e2_v1_pos
     c1 = e1_v1_pos + e1_vec * s
     c2 = e2_v1_pos + e2_vec * t
+    # DeBUG
+    #wp.printf(
+    #"st = (%.6f, %.6f, %.6f)\n",
+    #s, t, st[2],
+    #)
 
     # c1, c2, s, t = closest_point_edge_edge_2(e1_v1_pos, e1_v2_pos, e2_v1_pos, e2_v2_pos)
 
     diff = c1 - c2
     dis = st[2]
     collision_normal = diff / dis
+    # DeBUG
+    #wp.printf(
+    #"dis = (%.6f)\n",
+    #dis
+    #)
+    #wp.printf(
+    #"diff = (%.6f, %.6f, %.6f)\n",
+    #diff[0], diff[1], diff[2]
+    #)
 
     if dis < collision_radius:
         bs = wp.vec4(1.0 - s, s, -1.0 + t, -t)
 
         dEdD, d2E_dDdD = evaluate_self_contact_force_norm(dis, collision_radius, collision_stiffness)
+
+        # DeBUG
+        #wp.printf(
+        #"dEdD = (%.6f)\n",
+        #dEdD
+        #)
+        #wp.printf(
+        #"d2EdDdD = (%.6f)\n",
+        #d2E_dDdD
+        #)
+        #wp.printf(
+        #"collision_normal = (%.6f, %.6f, %.6f)\n",
+        #collision_normal[0], collision_normal[1], collision_normal[2]
+        #)
 
         collision_force = -dEdD * collision_normal
         collision_hessian = d2E_dDdD * wp.outer(collision_normal, collision_normal)
@@ -1076,6 +1104,25 @@ def zcy_evaluate_edge_edge_contact_2_vertices(
         )
         collision_force_11 += damping_force + bs[1] * friction_force
         collision_hessian_11 += damping_hessian + bs[1] * bs[1] * friction_hessian
+
+        # DeBUG
+        #wp.printf(
+        #"damping_force = (%.6f, %.6f, %.6f)\n",
+        #damping_force[0], damping_force[1], damping_force[2]
+        #)
+        #wp.printf(
+        #"friction_force = (%.6f, %.6f, %.6f)\n",
+        #friction_force[0], friction_force[1], friction_force[2]
+        #)
+        #wp.printf(
+        #"collision_force = (%.6f, %.6f, %.6f)\n",
+        #collision_force[0], collision_force[1], collision_force[2]
+        #)
+        #wp.printf(
+        #"collision_force_10 = (%.6f, %.6f, %.6f)\n",
+        #collision_force_10[0], collision_force_10[1], collision_force_10[2]
+        #)
+
 
         ### edge2
         displacement_20 = pos_prev[e2_v1] - e2_v1_pos
@@ -1930,6 +1977,28 @@ def convert_body_particle_contact_data_kernel(
     if contact_counter < body_particle_contact_buffer_pre_alloc:
         body_particle_contact_buffer[offset + contact_counter] = contact_index
 
+# zcy
+@wp.kernel
+def zcy_forward_step_penetration_free(
+    dt: float,
+    gravity: wp.vec3,
+    prev_pos: wp.array(dtype=wp.vec3),
+    pos: wp.array(dtype=wp.vec3),
+    vel: wp.array(dtype=wp.vec3),
+    pos_prev_collision_detection: wp.array(dtype=wp.vec3),
+    particle_conservative_bounds: wp.array(dtype=float),
+    inertia: wp.array(dtype=wp.vec3),
+):
+    particle_index = wp.tid()
+
+    prev_pos[particle_index] = pos[particle_index]
+    vel_new = vel[particle_index] + gravity * dt
+    pos_inertia = pos[particle_index] + vel_new * dt
+    inertia[particle_index] = pos_inertia
+
+    pos[particle_index] = apply_conservative_bound_truncation(
+        particle_index, pos_inertia, pos_prev_collision_detection, particle_conservative_bounds
+    )
 
 @wp.kernel
 def zcy_VBD_accumulate_contact_force_and_hessian(
@@ -2102,6 +2171,7 @@ def zcy_VBD_accumulate_contact_force_and_hessian(
                 wp.atomic_add(particle_hessians, particle_idx*N+tri_a, collision_hessian_30)
                 wp.atomic_add(particle_hessians, particle_idx*N+tri_b, collision_hessian_31)
                 wp.atomic_add(particle_hessians, particle_idx*N+tri_c, collision_hessian_32)
+# zcy
 
 @wp.kernel
 def VBD_accumulate_contact_force_and_hessian(
@@ -2266,7 +2336,6 @@ def VBD_accumulate_contact_force_and_hessian(
             )
             wp.atomic_add(particle_forces, particle_idx, body_contact_force)
             wp.atomic_add(particle_hessians, particle_idx, body_contact_hessian)
-
 
 @wp.kernel
 def VBD_accumulate_contact_force_and_hessian_no_self_contact(
@@ -2783,7 +2852,8 @@ class VBDIntegrator(Integrator):
             dim=self.model.particle_count,
             device=self.device,
         )
-  
+
+# zcy
     def zcy_compute_hessian_force(
         self, pos_warp, pos_prev_warp, dt: float, control: Control = None
     ):
@@ -2825,6 +2895,51 @@ class VBDIntegrator(Integrator):
                     outputs=[self.particle_forces, self.particle_hessians],
                     device=self.device,
                 )
+
+    def zcy_forward_step_penetration_free(
+        self, pos_warp, pos_prev_warp, vel_warp, dt: float, control: Control = None
+    ):
+        self.zcy_collision_detection_penetration_free(pos_warp, dt)
+        
+        wp.launch(
+            kernel=zcy_forward_step_penetration_free,
+            inputs=[
+                dt,
+                self.model.gravity,
+                pos_prev_warp,
+                pos_warp,
+                vel_warp,
+                self.pos_prev_collision_detection,
+                self.particle_conservative_bounds,
+                self.inertia,
+            ],
+            dim=self.model.particle_count,
+            device=self.device,
+        )        
+
+        self.zcy_collision_detection_penetration_free(pos_warp, dt)
+
+    def zcy_collision_detection_penetration_free(self, pos_warp, dt):
+        self.trimesh_collision_detector.refit(pos_warp)
+        self.trimesh_collision_detector.vertex_triangle_collision_detection(self.model.soft_contact_margin)
+        self.trimesh_collision_detector.edge_edge_collision_detection(self.model.soft_contact_margin)
+
+        self.pos_prev_collision_detection.assign(pos_warp)
+        wp.launch(
+            kernel=compute_particle_conservative_bound,
+            inputs=[
+                self.conservative_bound_relaxation,
+                self.model.soft_contact_margin,
+                self.adjacency,
+                self.trimesh_collision_detector.collision_info,
+            ],
+            outputs=[
+                self.particle_conservative_bounds,
+            ],
+            dim=self.model.particle_count,
+            device=self.device,
+        )
+# zcy
 
     def simulate_one_step_with_collisions_penetration_free(
         self, model: Model, state_in: State, state_out: State, dt: float, control: Control = None
