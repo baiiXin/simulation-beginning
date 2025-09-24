@@ -6,6 +6,7 @@ conda env create -f simulation25.yml --prefix D:\\data\envs\simulation25
 
 [Installation — Newton Physics](https://newton-physics.github.io/newton/guide/installation.html)
 
+```
 git clone git@github.com:newton-physics/newton.git
 cd newton
 
@@ -13,7 +14,7 @@ python -m pip install mujoco --pre -f https://py.mujoco.org/
 python -m pip install warp-lang --pre -U -f https://pypi.nvidia.com/warp-lang/
 python -m pip install git+https://github.com/google-deepmind/mujoco_warp.git@main
 python -m pip install -e .[dev]
-
+```
 
 
 ### 部分文件结构
