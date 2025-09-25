@@ -114,8 +114,8 @@ class Mass:
 
         # transform
         self.pos_warp = wp.array(self.pos_warp, dtype=wp.vec3)
-        self.pos_prev_warp = wp.clone(self.pos_warp)
-        self.vel_warp = wp.clone(self.pos_warp)
+        self.pos_prev_warp = wp.zeros_like(self.pos_warp, device=self.device)
+        self.vel_warp = wp.zeros_like(self.pos_warp, device=self.device)
         
         # 检查
         print('model.tri_indices', self.model.tri_indices.shape)
@@ -141,13 +141,13 @@ class Mass:
             2. 绘制收敛曲线的参数:
                 Newton_step, times_ms, Error_dx_norm, Residual_norm, Energy_norm
         '''
+        print('\n---bounds---')
         # compute bounds and forward
         self.compute_bounds()
         self.vbd_integrator.zcy_forward_step_penetration_free(self.pos_warp, self.pos_prev_warp, self.vel_warp, self.dt)
-        self.pos = self.pos_warp.numpy()
-        self.pos_hat = self.pos_prev_warp.numpy()
+        self.pos_hat = self.pos_warp.numpy()
+        self.pos = self.pos_prev_warp.numpy()
         self.vel = self.vel_warp.numpy()
-        self.compute_bounds()
 
         # Newton Method (Implicit Euler)
         # 计时
@@ -171,6 +171,7 @@ class Mass:
         # 迭代初值
         # self.pos_hat = self.pos.copy()
 
+        print('\n---iteration---')
         # 迭代
         for times in range(ite_num):
             # 计时
@@ -193,6 +194,7 @@ class Mass:
             # 计算dX
             dX, info = cg(A_sparse, b)
             # print('cg:',info)
+            #print('\ndX:', dX)
             
             # 更新位置（只更新非固定点）
             pos_new = self.pos_hat.copy()
@@ -201,7 +203,8 @@ class Mass:
                 pos_new[p] += dX[3*i : 3*i+3]
             self.pos_hat = pos_new.copy()
 
-            #self.truncate_displacement(self.bounds, self.pos_hat, self.pos_hat-self.pos)
+            # 截断
+            self.truncate_displacement(self.bounds, self.pos_hat, self.pos_hat-self.pos)
 
             # 组装时间
             end_time = time.time()  # 结束时间
@@ -226,14 +229,20 @@ class Mass:
             print('error_dx_norm =', error_dx_norm)
             print('residual_norm = ', residual_norm, residual_norm.dtype)
             print('Enegy = ', Energy)
+            '''
+            with open("debug.log", "a") as f:
+                f.write("checkpoint\n")
+                f.flush()
+            '''
+
             
             # 如果误差足够小，提前结束迭代
             if error_dx_norm < self.tolerance_newton:
                 break
  
         # 更新位置和速度
-        self.pos = self.pos_hat.copy()
         self.vel = (self.pos_hat - self.pos) / self.dt * self.dump
+        self.pos = self.pos_hat.copy()
 
         return Newton_step, times_ms, Error_dx_norm, Residual_norm, Energy_norm
 
@@ -306,11 +315,10 @@ class Mass:
             g[(j*space_dim):(j*space_dim+space_dim)] = g_vec
 
             # 接触力
-            '''
             f[(j*space_dim):(j*space_dim+space_dim)] += self.particle_forces[j]
             for i in range(Nm):
                 H[(j*space_dim):(j*space_dim+space_dim), (i*space_dim):(i*space_dim+space_dim)] -= self.particle_hessians[j*Nm+i]
-            '''
+            
             # 质量/单位矩阵
             I_eyes = np.eye(space_dim)
             I[(j*space_dim):(j*space_dim+space_dim), (j*space_dim):(j*space_dim+space_dim)] = I_eyes
