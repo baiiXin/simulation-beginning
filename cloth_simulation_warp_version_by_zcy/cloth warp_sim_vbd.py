@@ -3,11 +3,9 @@ from platform import java_ver
 import warp as wp
 import numpy as np
 import trimesh
-
+from warp.sim.collide import TriMeshCollisionDetector
 # cpmpute bounds
-import newton
-from newton._src.solvers.vbd.tri_mesh_collision import TriMeshCollisionDetector
-from newton._src.solvers.vbd.solver_vbd import get_vertex_num_adjacent_edges, get_vertex_adjacent_edge_id_order, get_vertex_num_adjacent_faces, get_vertex_adjacent_face_id_order, ForceElementAdjacencyInfo
+from warp.sim.integrator_vbd import get_vertex_num_adjacent_edges, get_vertex_adjacent_edge_id_order, get_vertex_num_adjacent_faces, get_vertex_adjacent_face_id_order, ForceElementAdjacencyInfo
 
 # TODO: compute the conservative bounds
 @wp.kernel
@@ -92,32 +90,27 @@ class Mass:
         self.Spring = Spring # 弹簧
         self.dt = dt # 时间步长
         self.tolerance_newton = tolerance_newton # 牛顿迭代的容差
-        self.iterations = 10
 
         # warp_vbd_self_collison_init
         self.device = wp.get_device('cpu')
         self.pos_warp = [wp.vec3(self.pos[i,:]) for i in range(self.num)]
 
-        self.builder = newton.ModelBuilder()
+        self.builder = wp.sim.ModelBuilder()
         self.builder.add_cloth_mesh(
-            pos=wp.vec3(0.0, 0.0, 10.0),
-            rot=wp.quat_from_axis_angle(wp.vec3(1.0, 0.0, 0.0), wp.pi / 6.0),
-            scale=1.0,
-            vertices=self.pos_warp,
-            indices=self.ele.reshape(-1),
-            vel=wp.vec3(0.0, 0.0, 0.0),
-            density=0.02,
-            tri_ke=5.0e1,
-            tri_ka=5.0e1,
-            tri_kd=1.0e-1,
-            edge_ke=1.0e1,
-            edge_kd=1.0e0,
+                    pos=wp.vec3(0.0, 0.0, 0.0),
+                    rot=wp.quat_identity(),
+                    scale=1.0,
+                    vertices=self.pos_warp,
+                    indices=self.ele.reshape(-1),
+                    vel=wp.vec3(0.0, 0.0, 0.0),
+                    density=0.02,
+                    tri_ke=1.0e5,
+                    tri_ka=1.0e5,
+                    tri_kd=2.0e-6,
+                    edge_ke=10,
         )
-        self.builder.add_ground_plane()
-        self.builder.color(include_bending=True)
+        self.builder.color()
         self.model = self.builder.finalize()
-
-        self.vbd_integrator = newton.solvers.SolverVBD(model=self.model, iterations=self.iterations)
 
         # transform
         self.pos_warp = wp.array(self.pos_warp, dtype=wp.vec3)
@@ -129,9 +122,11 @@ class Mass:
         print('model.edge_indices', self.model.edge_indices.shape)
 
         # to access ForceElementAdjacencyInfo, you need to construct a VBDIntegrator (you dont need to understand what it is)
+        self.vbd_integrator = wp.sim.VBDIntegrator(self.model, handle_self_contact=True)
         self.collision_detector = TriMeshCollisionDetector(self.model)
-        self.collision_detector.vertex_triangle_collision_detection(0.2)
-        self.collision_detector.edge_edge_collision_detection(0.2)
+
+        self.collision_detector.vertex_triangle_collision_detection(5.0)
+        self.collision_detector.edge_edge_collision_detection(5.0)
 
         # bounds_init
         self.gama_p = 0.4
