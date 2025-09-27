@@ -29,10 +29,10 @@ def generate_cloth(a, b, c, d, h1, h2, z, mass_m, stiff_k, dump, gravity, dt, N,
     myMass = Mass(
         num=Mass_num,
         ele=Mass_E,
-        pos=Mass_X.copy(),
-        vel=Mass_V.copy(),
-        pos_hat=Mass_X.copy(),
-        vel_hat=Mass_V.copy(),
+        pos_cur=Mass_X.copy(),
+        vel_cur=Mass_V.copy(),
+        pos_prev=Mass_X.copy(),
+        vel_prev=Mass_V.copy(),
         mass=Mass_m,
         dump=dump,
         gravity=gravity,
@@ -42,18 +42,18 @@ def generate_cloth(a, b, c, d, h1, h2, z, mass_m, stiff_k, dump, gravity, dt, N,
     )
 
     # 储存结果
-    cloth_data = [myMass.pos]
+    cloth_data = [myMass.pos_cur.copy()]
 
     # 计算
     for i in range(N):
         print("Time step: ", i)
         [Newton_steps, times_ms, Error_dx_norm, Residual_norm, Energy_norm] = myMass.Single_Newton_Method(mySpring, fixed_num, ite_num)
-        cloth_data.append(myMass.pos)
+        cloth_data.append(myMass.pos_cur.copy())
 
     triangles = Mass_E
     print(triangles.shape)
     print(mySpring.ele.shape)
-    print(myMass.pos.shape)
+    print(myMass.pos_cur.shape)
     print(cloth_data[0].shape)
 
     return triangles, cloth_data, Newton_steps, times_ms, Error_dx_norm, Residual_norm, Energy_norm

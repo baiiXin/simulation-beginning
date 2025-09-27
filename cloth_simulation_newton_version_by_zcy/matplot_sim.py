@@ -27,22 +27,22 @@ h2 = 0.5
 #fixed_num0 = (int((b-a)/h1)+1)*2 + 1
 #fixed_num1 = (int((b-a)/h1)+1)*3 + 1 
 #fixed_num = [fixed_num0, fixed_num1]
-fixed_num = 0 #int((b-a)/h1+1)
+fixed_num = 0 # int((b-a)/h1+1)
 
 # 材料参数
 z=8.0
 mass_m = 1
-stiff_k = 800
+stiff_k = 8000
 
 # 阻尼参数
-dump = 0.98
+dump = 0.9
 gravity = 9.8
 
 # simulation
 # 初始参数
-dt = 0.03
-N = 100
-ite_num = 10
+dt = 0.02
+N = 30
+ite_num = 4
 tolerance_newton = 1e-4
 
 # 球体参数

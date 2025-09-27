@@ -6,8 +6,8 @@ import trimesh
 
 # cpmpute bounds
 import newton
-from newton._src.solvers.vbd.tri_mesh_collision import TriMeshCollisionDetector
-from newton._src.solvers.vbd.solver_vbd import get_vertex_num_adjacent_edges, get_vertex_adjacent_edge_id_order, get_vertex_num_adjacent_faces, get_vertex_adjacent_face_id_order, ForceElementAdjacencyInfo
+from newton._src.solvers.zcy_vbd.tri_mesh_collision import TriMeshCollisionDetector
+from newton._src.solvers.zcy_vbd.zcy_solver_vbd import zcy_SolverVBD, get_vertex_num_adjacent_edges, get_vertex_adjacent_edge_id_order, get_vertex_num_adjacent_faces, get_vertex_adjacent_face_id_order, ForceElementAdjacencyInfo
 
 # TODO: compute the conservative bounds
 @wp.kernel
@@ -72,18 +72,17 @@ class Spring:
 
 class Mass:
     def __init__(self, num=int, 
-                 pos=None, vel=None, pos_hat=None, vel_hat=None,
+                 pos_cur=None, vel_cur=None, pos_prev=None, vel_prev=None,
                  ele=None, mass=None, 
                  force=None, Hessian=None, Mass_k=None,
                  dump=None, gravity=None, Spring=Spring, dt=None, 
                  tolerance_newton=None):
         self.num = num # 质点数量；1
         self.ele = ele # 三角元；[[0, 1, 2], [1, 2, 3], [2, 3, 4]]
-        self.pos = pos # 质点位置；[[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [2.0, 0.0, 0.0], [3.0, 0.0, 0.0], [4.0, 0.0, 0.0]]
-        self.displacement = pos-pos 
-        self.vel = vel # 质点速度；[[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]]
-        self.pos_hat = pos_hat # 预测质点位置
-        self.vel_hat = vel_hat # 预测质点速度
+        self.pos_cur = pos_cur # 质点位置；[[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [2.0, 0.0, 0.0], [3.0, 0.0, 0.0], [4.0, 0.0, 0.0]]
+        self.vel_cur = vel_cur # 质点速度；[[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]]
+        self.pos_prev = pos_prev # 预测质点位置
+        self.vel_prev = vel_prev # 预测质点速度
         self.force = force # 力向量--牛顿迭代--线性方程组--b
         self.Hessian = Hessian # 矩阵--牛顿迭代--线性方程组--A
         self.mass = mass # 质点质量；1
@@ -93,31 +92,46 @@ class Mass:
         self.dt = dt # 时间步长
         self.tolerance_newton = tolerance_newton # 牛顿迭代的容差
         self.iterations = 10
+        # self.fixed_num = 9
+        self.space_dim = 3
+
+        # fixed points
+        # 初始化
+        self.fixed_idx = [36, 44]
+        self.all_idx = np.arange(self.num)
+        self.free_idx = np.setdiff1d(self.all_idx, self.fixed_idx)
+        free_idx = np.array(self.free_idx)
+        dof_matrix = 3 * free_idx[:, np.newaxis] + np.arange(3)
+        self.free_dof = dof_matrix.flatten()
+        # print('self.free_dof', self.free_dof)
+
+        # 初始值
+        self.pos_prev = self.pos_cur.copy()
+        self.vel_prev = self.vel_cur.copy()
 
         # warp_vbd_self_collison_init
         self.device = wp.get_device('cpu')
-        self.pos_warp = [wp.vec3(self.pos[i,:]) for i in range(self.num)]
+        self.pos_warp = [wp.vec3(self.pos_cur[i,:]) for i in range(self.num)]
 
         self.builder = newton.ModelBuilder()
         self.builder.add_cloth_mesh(
-            pos=wp.vec3(0.0, 0.0, 10.0),
-            rot=wp.quat_from_axis_angle(wp.vec3(1.0, 0.0, 0.0), wp.pi / 6.0),
-            scale=1.0,
-            vertices=self.pos_warp,
-            indices=self.ele.reshape(-1),
-            vel=wp.vec3(0.0, 0.0, 0.0),
-            density=0.02,
-            tri_ke=5.0e1,
-            tri_ka=5.0e1,
-            tri_kd=1.0e-1,
-            edge_ke=1.0e1,
-            edge_kd=1.0e0,
+                    pos=wp.vec3(0.0, 0.0, 0.0),
+                    rot=wp.quat_identity(),
+                    scale=1.0,
+                    vertices=self.pos_warp,
+                    indices=self.ele.reshape(-1),
+                    vel=wp.vec3(0.0, 0.0, 0.0),
+                    density=0.02,
+                    tri_ke=1.0e5,
+                    tri_ka=1.0e5,
+                    tri_kd=2.0e-6,
+                    edge_ke=10,
         )
         self.builder.add_ground_plane()
         self.builder.color(include_bending=True)
         self.model = self.builder.finalize()
 
-        self.vbd_integrator = newton.solvers.SolverVBD(model=self.model, iterations=self.iterations, handle_self_contact=True)
+        self.vbd_integrator = zcy_SolverVBD(model=self.model, iterations=self.iterations, handle_self_contact=True)
 
         # transform
         self.pos_warp = wp.array(self.pos_warp, dtype=wp.vec3)
@@ -150,9 +164,15 @@ class Mass:
         # compute bounds and forward
         self.compute_bounds()
         self.vbd_integrator.zcy_forward_step_penetration_free(self.pos_warp, self.pos_prev_warp, self.vel_warp, self.dt)
-        self.pos_hat = self.pos_warp.numpy()
-        self.pos = self.pos_prev_warp.numpy()
-        self.vel = self.vel_warp.numpy()
+        pos_cur = self.pos_warp.numpy()
+        pos_prev = self.pos_prev_warp.numpy()
+        self.truncate_displacement(self.bounds, self.pos_cur, self.pos_cur-self.pos_prev)
+
+        # free point update
+        #for i, p in enumerate(self.free_idx):
+        #        self.pos_cur[p] = pos_cur[p]
+        #        self.pos_prev[p] = pos_prev[p]
+        #        self.vel_cur[p] = (self.pos_cur[p] - self.pos_prev[p]) / self.dt
 
         # Newton Method (Implicit Euler)
         # 计时
@@ -162,16 +182,6 @@ class Mass:
         Error_dx_norm = []
         Residual_norm = []
         Energy_norm = []
-
-        # 初始化
-        fixed_idx = [i for i in range(fixed_num)]
-        all_idx = np.arange(self.num)
-        free_idx = np.setdiff1d(all_idx, fixed_idx)
-        # 每个点有三个自由度
-        free_dof = np.concatenate([3*free_idx + i for i in range(3)])
-        # 稳定版本
-        fixed_points = fixed_num*space_dim
-        all_points = self.num*space_dim
 
         # 迭代初值
         # self.pos_hat = self.pos.copy()
@@ -188,10 +198,9 @@ class Mass:
             self.assemebel_HF(Spring)
 
             # fixed_num
-            # [A,b] = self.boundary_solve(fixed_num, space_dim)
             # 注意：只求解自由部分
-            A = -self.Hessian[fixed_points:all_points, fixed_points:all_points]
-            b = self.force[fixed_points:all_points]
+            A = -self.Hessian[np.ix_(self.free_dof, self.free_dof)]
+            b =  self.force[self.free_dof]
 
             # 矩阵稀疏化
             A_sparse = csr_matrix(A)
@@ -202,14 +211,16 @@ class Mass:
             #print('\ndX:', dX)
             
             # 更新位置（只更新非固定点）
-            pos_new = self.pos_hat.copy()
+            pos_new = self.pos_cur.copy()
             # 将 x_free 重新写回到 pos_new 对应的自由点
-            for i, p in enumerate(free_idx):
+            for i, p in enumerate(self.free_idx):
                 pos_new[p] += dX[3*i : 3*i+3]
-            self.pos_hat = pos_new.copy()
+            self.pos_cur = pos_new.copy()
+            
+            self.pos_warp = wp.array(self.pos_cur, dtype=wp.vec3)
 
             # 截断
-            self.truncate_displacement(self.bounds, self.pos_hat, self.pos_hat-self.pos)
+            self.truncate_displacement(self.bounds, self.pos_cur, self.pos_cur-self.pos_prev)
 
             # 组装时间
             end_time = time.time()  # 结束时间
@@ -245,8 +256,13 @@ class Mass:
  
         # 更新位置和速度
         print('\n---update---')
-        self.vel = (self.pos_hat - self.pos) / self.dt * self.dump
-        self.pos = self.pos_hat.copy()
+        self.vel_cur = (self.pos_cur - self.pos_prev) / self.dt * self.dump
+        self.pos_cur, self.pos_prev = self.pos_prev, self.pos_cur
+
+        # transform
+        self.pos_warp = wp.array(self.pos_cur, dtype=wp.vec3)
+        self.pos_prev_warp = wp.array(self.pos_prev, dtype=wp.vec3)
+        self.vel_warp = wp.array(self.vel_cur, dtype=wp.vec3)
 
         return Newton_step, times_ms, Error_dx_norm, Residual_norm, Energy_norm
 
@@ -261,7 +277,7 @@ class Mass:
         self.particle_forces, self.particle_hessians = self.vbd_integrator.particle_forces.numpy(), self.vbd_integrator.particle_hessians.numpy()
 
         # 测试 
-        #print('self.particle_forces', self.particle_forces.shape, type(self.particle_forces))
+        #print('\nself.particle_forces', self.particle_forces.shape, type(self.particle_forces))
         #print('self.particle_hessians', self.particle_hessians.shape, type(self.particle_hessians))
         #print(self.particle_forces[0])
         #print(self.particle_hessians[0])
@@ -291,7 +307,7 @@ class Mass:
         for i in range(NS): 
             a = Spring.ele[i][0]  # 弹簧连接的第一个质点
             b = Spring.ele[i][1]  # 弹簧连接的第二个质点
-            x_ab = self.pos_hat[a] - self.pos_hat[b]  # 两点之间的向量
+            x_ab = self.pos_cur[a] - self.pos_cur[b]  # 两点之间的向量
             x_ab_norm = np.linalg.norm(x_ab)  # 向量的范数（长度）
             
             # 计算弹簧力
@@ -321,14 +337,14 @@ class Mass:
             # 接触力
             f[(j*space_dim):(j*space_dim+space_dim)] += self.particle_forces[j]
             for i in range(Nm):
-                H[(j*space_dim):(j*space_dim+space_dim), (i*space_dim):(i*space_dim+space_dim)] -= self.particle_hessians[j*Nm+i]
+                H[(j*space_dim):(j*space_dim+space_dim), (i*space_dim):(i*space_dim+space_dim)] += self.particle_hessians[j*Nm+i]
             
             # 质量/单位矩阵
             I_eyes = np.eye(space_dim)
             I[(j*space_dim):(j*space_dim+space_dim), (j*space_dim):(j*space_dim+space_dim)] = I_eyes
             
             # 计算F向量
-            F[(j*space_dim):(j*space_dim+space_dim)] = self.pos_hat[j] - self.pos[j] - self.dt * self.vel[j]
+            F[(j*space_dim):(j*space_dim+space_dim)] = self.pos_cur[j] - self.pos_prev[j] - self.dt * self.vel_cur[j]
         
         # 返回计算结果
         self.force = F - self.dt * self.dt * (1/self.mass) * (f+g)  # 计算b向量
@@ -356,10 +372,10 @@ class Mass:
         # 计算质点的重力和质量矩阵
         for j in range(Nm):
             # 计算能量
-            Energy_G  +=  self.mass * self.gravity * self.pos_hat[j][2]
+            Energy_G  +=  self.mass * self.gravity * self.pos_cur[j][2]
         
             # 计算F向量
-            norm_F_vec[(j*space_dim):(j*space_dim+space_dim)] = self.pos_hat[j] - self.pos[j] - self.dt * self.vel[j]
+            norm_F_vec[(j*space_dim):(j*space_dim+space_dim)] = self.pos_cur[j] - self.pos_prev[j] - self.dt * self.vel_cur[j]
         # 计算能量
         Energy_F +=  (1.0/ (2.0 * self.dt * self.dt)) * self.mass * np.linalg.norm(norm_F_vec) * np.linalg.norm(norm_F_vec)
 
@@ -367,7 +383,7 @@ class Mass:
         for i in range(NS): 
             a = Spring.ele[i][0]  # 弹簧连接的第一个质点
             b = Spring.ele[i][1]  # 弹簧连接的第二个质点
-            x_ab = self.pos_hat[a] - self.pos_hat[b]  # 两点之间的向量
+            x_ab = self.pos_cur[a] - self.pos_cur[b]  # 两点之间的向量
             x_ab_norm = np.linalg.norm(x_ab)  # 向量的范数（长度）
             # 计算弹簧力
             Energy_E += 0.5 * Spring.stiff_k * (x_ab_norm - Spring.rest_len[i]) * (x_ab_norm - Spring.rest_len[i])
@@ -413,11 +429,4 @@ class Mass:
             device=self.device
         )
 
-        self.pos_hat = new_pos.numpy()
-
-'''
-# 碰撞检测和响应
-
-        # truncation
-        self.truncate_displacement(self.bounds, self.pos, self.pos_hat-self.pos)
-'''
+        self.pos_cur = new_pos.numpy()
