@@ -24,7 +24,7 @@ def generate_cloth(a, b, c, d, h1, h2, z, mass_m, stiff_k, dump, gravity, dt, N,
         rest_len=Spring_len,
         stiff_k=Spring_stiff_k
     )
-
+    #print(Mass_X)
     # 创建质点
     myMass = Mass(
         num=Mass_num,

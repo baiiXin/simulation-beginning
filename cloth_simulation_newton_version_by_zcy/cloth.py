@@ -135,8 +135,8 @@ class Mass:
 
         # transform
         self.pos_warp = wp.array(self.pos_warp, dtype=wp.vec3)
-        self.pos_prev_warp = wp.zeros_like(self.pos_warp, device=self.device)
-        self.vel_warp = wp.zeros_like(self.pos_warp, device=self.device)
+        self.pos_prev_warp = wp.array(self.pos_prev, dtype=wp.vec3)
+        self.vel_warp = wp.array(self.vel_cur, dtype=wp.vec3)
         
         # 检查
         print('model.tri_indices', self.model.tri_indices.shape)
@@ -161,18 +161,21 @@ class Mass:
                 Newton_step, times_ms, Error_dx_norm, Residual_norm, Energy_norm
         '''
         print('\n---bounds---')
+        #print('max(pos_cur-pos_prev):', np.max(self.pos_cur-self.pos_prev), np.max(self.pos_prev-self.pos_cur))
         # compute bounds and forward
-        self.compute_bounds()
+        # self.compute_bounds()
         self.vbd_integrator.zcy_forward_step_penetration_free(self.pos_warp, self.pos_prev_warp, self.vel_warp, self.dt)
         pos_cur = self.pos_warp.numpy()
-        pos_prev = self.pos_prev_warp.numpy()
-        self.truncate_displacement(self.bounds, self.pos_cur, self.pos_cur-self.pos_prev)
+        vel_cur = self.vel_warp.numpy()
+        # self.truncate_displacement(self.bounds, self.pos_cur, self.pos_cur-self.pos_prev)
 
         # free point update
-        #for i, p in enumerate(self.free_idx):
-        #        self.pos_cur[p] = pos_cur[p]
-        #        self.pos_prev[p] = pos_prev[p]
-        #        self.vel_cur[p] = (self.pos_cur[p] - self.pos_prev[p]) / self.dt
+        for i, p in enumerate(self.free_idx):
+                self.pos_cur[p] = pos_cur[p]
+                self.vel_cur[p] = vel_cur[p]
+        
+        #print('max(pos_cur-pos_prev)0:', np.max(pos_cur-self.pos_prev), np.max(self.pos_prev-pos_cur))
+        #print('max(pos_cur-pos_prev)1:', np.max(self.pos_cur-self.pos_prev), np.max(self.pos_prev-self.pos_cur))
 
         # Newton Method (Implicit Euler)
         # 计时
@@ -216,11 +219,12 @@ class Mass:
             for i, p in enumerate(self.free_idx):
                 pos_new[p] += dX[3*i : 3*i+3]
             self.pos_cur = pos_new.copy()
-            
             self.pos_warp = wp.array(self.pos_cur, dtype=wp.vec3)
 
             # 截断
-            self.truncate_displacement(self.bounds, self.pos_cur, self.pos_cur-self.pos_prev)
+            # self.truncate_displacement(self.bounds, self.pos_cur, self.pos_cur-self.pos_prev)
+            self.vbd_integrator.zcy_truncation_by_conservative_bound(self.pos_warp)
+            self.pos_cur = self.pos_warp.numpy()
 
             # 组装时间
             end_time = time.time()  # 结束时间
@@ -335,9 +339,9 @@ class Mass:
             g[(j*space_dim):(j*space_dim+space_dim)] = g_vec
 
             # 接触力
-            f[(j*space_dim):(j*space_dim+space_dim)] += self.particle_forces[j]
+            f[(j*space_dim):(j*space_dim+space_dim)] -= self.particle_forces[j]
             for i in range(Nm):
-                H[(j*space_dim):(j*space_dim+space_dim), (i*space_dim):(i*space_dim+space_dim)] += self.particle_hessians[j*Nm+i]
+                H[(j*space_dim):(j*space_dim+space_dim), (i*space_dim):(i*space_dim+space_dim)] -= self.particle_hessians[j*Nm+i]
             
             # 质量/单位矩阵
             I_eyes = np.eye(space_dim)
@@ -391,11 +395,13 @@ class Mass:
         Energy = Energy_E + Energy_F + Energy_G
         return Energy
 
+
+'''
     def compute_bounds(self):
 
         self.collision_detector.refit(self.pos_warp)
-        self.collision_detector.vertex_triangle_collision_detection(self.vbd_integrator.self_contact_margin)
-        self.collision_detector.edge_edge_collision_detection(self.vbd_integrator.self_contact_margin)
+        self.collision_detector.vertex_triangle_collision_detection(0.3)
+        self.collision_detector.edge_edge_collision_detection(0.3)
         self.vbd_integrator.pos_prev_collision_detection.assign(self.pos_warp)
 
         wp.launch(
@@ -430,3 +436,5 @@ class Mass:
         )
 
         self.pos_cur = new_pos.numpy()
+'''
+
