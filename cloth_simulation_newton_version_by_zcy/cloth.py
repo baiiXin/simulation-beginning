@@ -97,7 +97,7 @@ class Mass:
 
         # fixed points
         # 初始化
-        self.fixed_idx = [36, 44]
+        self.fixed_idx = [36, 44] #[72, 80] #[0, 8] #[36, 44]
         self.all_idx = np.arange(self.num)
         self.free_idx = np.setdiff1d(self.all_idx, self.fixed_idx)
         free_idx = np.array(self.free_idx)
@@ -160,10 +160,24 @@ class Mass:
             2. 绘制收敛曲线的参数:
                 Newton_step, times_ms, Error_dx_norm, Residual_norm, Energy_norm
         '''
-        print('\n---bounds---')
+        print('\n---bounds and forward step---')
+        
+        # must include this after you update the mesh position, otherwise the collision detection results are not precise
+        self.vbd_integrator.trimesh_collision_detector.refit(self.pos_prev_warp)
+        self.vbd_integrator.trimesh_collision_detector.triangle_triangle_intersection_detection()
+
+        # ===== 打印三角形相交检测结果 =====
+        print("===== Triangle-Triangle Intersection Results =====")
+        # 2. 每个三角形的相交数量
+        counts = self.vbd_integrator.trimesh_collision_detector.triangle_intersecting_triangles_count.numpy()
+        # 额外：总相交数量
+        print("Total intersections:", counts.sum())
+
         #print('max(pos_cur-pos_prev):', np.max(self.pos_cur-self.pos_prev), np.max(self.pos_prev-self.pos_cur))
         # compute bounds and forward
         # self.compute_bounds()
+        #print('pos_warp', id(self.pos_warp))
+        #print('pos_prev_warp', id(self.pos_prev_warp))
         self.vbd_integrator.zcy_forward_step_penetration_free(self.pos_warp, self.pos_prev_warp, self.vel_warp, self.dt)
         pos_cur = self.pos_warp.numpy()
         vel_cur = self.vel_warp.numpy()
@@ -176,7 +190,8 @@ class Mass:
         
         #print('max(pos_cur-pos_prev)0:', np.max(pos_cur-self.pos_prev), np.max(self.pos_prev-pos_cur))
         #print('max(pos_cur-pos_prev)1:', np.max(self.pos_cur-self.pos_prev), np.max(self.pos_prev-self.pos_cur))
-
+        self.vbd_integrator.zcy_collision_detection_penetration_free(self.pos_warp)
+        
         # Newton Method (Implicit Euler)
         # 计时
         times_ms = []
@@ -192,6 +207,7 @@ class Mass:
         print('\n---iteration---')
         # 迭代
         for times in range(ite_num):
+            print('---iteration step start---')
             # 计时
             start_time = time.time()
 
@@ -223,8 +239,10 @@ class Mass:
 
             # 截断
             # self.truncate_displacement(self.bounds, self.pos_cur, self.pos_cur-self.pos_prev)
+            # print('self.pos_warp', id(self.pos_warp))
             self.vbd_integrator.zcy_truncation_by_conservative_bound(self.pos_warp)
             self.pos_cur = self.pos_warp.numpy()
+            # print('self.pos_warp', id(self.pos_warp))
 
             # 组装时间
             end_time = time.time()  # 结束时间
@@ -244,7 +262,7 @@ class Mass:
             Energy_norm.append(Energy)
 
             # 打印残差
-            print('Newton Method step: ', times)
+            print('\nNewton Method iteration step: ', times)
             print('times_ms = ', (end_time - start_time) * 1000)
             print('error_dx_norm =', error_dx_norm)
             print('residual_norm = ', residual_norm, residual_norm.dtype)
@@ -254,6 +272,8 @@ class Mass:
                 f.write("checkpoint\n")
                 f.flush()
             '''
+
+            print('---iteration step end---\n')
             # 如果误差足够小，提前结束迭代
             if error_dx_norm < self.tolerance_newton:
                 break
@@ -281,14 +301,14 @@ class Mass:
         self.particle_forces, self.particle_hessians = self.vbd_integrator.particle_forces.numpy(), self.vbd_integrator.particle_hessians.numpy()
 
         # 测试 
-        #print('\nself.particle_forces', self.particle_forces.shape, type(self.particle_forces))
+        print('self.particle_forces', self.particle_forces.shape, type(self.particle_forces))
         #print('self.particle_hessians', self.particle_hessians.shape, type(self.particle_hessians))
         #print(self.particle_forces[0])
         #print(self.particle_hessians[0])
         #print(np.isnan(self.particle_forces).all())
         #print(np.isnan(self.particle_hessians).all())
-        #print(self.particle_forces)
-        #print(self.particle_hessians)
+        print('max(self.particle_forces):', np.max(np.abs(self.particle_forces)))
+        print('max(self.particle_hessians):', np.max(np.abs(self.particle_hessians)))
         #print(np.argwhere(np.isnan(self.particle_forces)))
         #print(np.argwhere(np.isnan(self.particle_hessians)))
         
@@ -339,9 +359,9 @@ class Mass:
             g[(j*space_dim):(j*space_dim+space_dim)] = g_vec
 
             # 接触力
-            f[(j*space_dim):(j*space_dim+space_dim)] -= self.particle_forces[j]
+            f[(j*space_dim):(j*space_dim+space_dim)] += self.particle_forces[j]
             for i in range(Nm):
-                H[(j*space_dim):(j*space_dim+space_dim), (i*space_dim):(i*space_dim+space_dim)] -= self.particle_hessians[j*Nm+i]
+                H[(j*space_dim):(j*space_dim+space_dim), (i*space_dim):(i*space_dim+space_dim)] += self.particle_hessians[j*Nm+i]
             
             # 质量/单位矩阵
             I_eyes = np.eye(space_dim)

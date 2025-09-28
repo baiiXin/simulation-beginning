@@ -46,7 +46,7 @@ def generate_cloth(a, b, c, d, h1, h2, z, mass_m, stiff_k, dump, gravity, dt, N,
 
     # 计算
     for i in range(N):
-        print("Time step: ", i)
+        print("\n\n=====Time step: ", i, "=====")
         [Newton_steps, times_ms, Error_dx_norm, Residual_norm, Energy_norm] = myMass.Single_Newton_Method(mySpring, fixed_num, ite_num)
         cloth_data.append(myMass.pos_cur.copy())
 

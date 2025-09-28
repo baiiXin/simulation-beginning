@@ -39,3 +39,16 @@ print('\nvel_cur_array:', vel_cur_array, vel_cur_array.shape, type(vel_cur_array
 pos_cur_array, vel_cur_array = vel_cur_array, pos_cur_array
 print('\npos_cur_array:', pos_cur_array, pos_cur_array.shape, type(pos_cur_array), id(pos_cur_array))
 print('\nvel_cur_array:', vel_cur_array, vel_cur_array.shape, type(vel_cur_array), id(vel_cur_array))
+
+
+arr = np.random.rand(5, 3)   # 举例，一个 5x3 的数组
+norms = np.linalg.norm(arr, axis=1)  # 结果是长度为 5 的 1D array
+print('\narr:', arr)
+print('\nnorms:',norms)
+
+
+
+pos_new = wp.clone(pos_warp)
+print('\npos_warp:',pos_warp, id(pos_warp))
+print('\npos_new:', pos_new, id(pos_new))
+
