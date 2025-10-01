@@ -97,7 +97,7 @@ class Mass:
 
         # fixed points
         # 初始化
-        self.fixed_idx = [36, 44] #[72, 80] #[0, 8] #[36, 44]
+        self.fixed_idx = [] #[72, 80] #[0, 8] #[36, 44]
         self.all_idx = np.arange(self.num)
         self.free_idx = np.setdiff1d(self.all_idx, self.fixed_idx)
         free_idx = np.array(self.free_idx)
@@ -131,13 +131,21 @@ class Mass:
         self.builder.color(include_bending=True)
         self.model = self.builder.finalize()
 
+        self.state_0 = self.model.state()
+        self.state_1 = self.model.state()
+        self.control = self.model.control()
+        self.contacts = self.model.collide(self.state_0)
+
         self.vbd_integrator = zcy_SolverVBD(model=self.model, iterations=self.iterations, handle_self_contact=True)
 
         # transform
-        self.pos_warp = wp.array(self.pos_warp, dtype=wp.vec3)
-        self.pos_prev_warp = wp.array(self.pos_prev, dtype=wp.vec3)
+        #self.pos_warp = wp.array(self.pos_warp, dtype=wp.vec3)
+        #self.pos_prev_warp = wp.array(self.pos_prev, dtype=wp.vec3)
         self.vel_warp = wp.array(self.vel_cur, dtype=wp.vec3)
+        self.pos_warp = self.state_1.particle_q
+        self.pos_prev_warp = self.state_0.particle_q
         
+
         # 检查
         print('model.tri_indices', self.model.tri_indices.shape)
         print('model.edge_indices', self.model.edge_indices.shape)
@@ -161,7 +169,8 @@ class Mass:
                 Newton_step, times_ms, Error_dx_norm, Residual_norm, Energy_norm
         '''
         print('\n---bounds and forward step---')
-        
+        self.contacts = self.model.collide(self.state_0)
+
         # must include this after you update the mesh position, otherwise the collision detection results are not precise
         self.vbd_integrator.trimesh_collision_detector.refit(self.pos_prev_warp)
         self.vbd_integrator.trimesh_collision_detector.triangle_triangle_intersection_detection()
@@ -297,7 +306,7 @@ class Mass:
                 不是实际的force和hessian; 对应牛顿迭代的A和b
         '''
         # self_collision_force_and_hessian
-        self.vbd_integrator.zcy_compute_hessian_force(self.pos_warp, self.pos_prev_warp, self.dt)
+        self.vbd_integrator.zcy_compute_hessian_force(self.pos_warp, self.pos_prev_warp, self.dt, self.state_0, self.state_1, self.control, self.contacts)
         self.particle_forces, self.particle_hessians = self.vbd_integrator.particle_forces.numpy(), self.vbd_integrator.particle_hessians.numpy()
 
         # 测试 

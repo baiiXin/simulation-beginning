@@ -52,3 +52,42 @@ pos_new = wp.clone(pos_warp)
 print('\npos_warp:',pos_warp, id(pos_warp))
 print('\npos_new:', pos_new, id(pos_new))
 
+
+print('\n---.fill()&.assign()---')
+# 创建两个 Warp 数组
+a = wp.array([0, 0, 0, 0], dtype=wp.int32, device="cpu")
+b = wp.array([1, 2, 3, 4], dtype=wp.int32, device="cpu")
+
+# fill 把所有元素变成 -1
+a.fill_(-1)
+print(a)   # [-1 -1 -1 -1]
+
+# assign 把 b 的内容拷贝到 a
+a.assign(b)
+print(a)   # [1 2 3 4]
+
+print('\n---.full()---')
+# 在 CPU 上创建一个长度为 5 的数组，所有元素都是 -1
+a = wp.full(5, -1, dtype=wp.int32, device="cpu")
+print(a)   # [-1 -1 -1 -1 -1]
+
+# 创建一个 2x3 的浮点数组，值全是 3.14
+b = wp.full((2, ), dtype=wp.float32, device="cpu")
+print(b)
+b = wp.full((2, 3), 3.14, dtype=wp.float32, device="cpu")
+print(b)
+
+# 生成器
+up_vector = (0, 1, 0)
+gravity = 9.81
+gen = (g * gravity for g in up_vector)
+
+print(gen)
+print(list(gen))
+
+
+up_vector = (0, 0, 1)
+gravity = 9.81
+
+mgravity = wp.array([wp.vec3(*(g * gravity for g in up_vector))], dtype=wp.vec3)
+print(mgravity)
