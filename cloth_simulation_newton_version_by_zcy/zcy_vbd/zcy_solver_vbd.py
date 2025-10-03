@@ -2274,13 +2274,25 @@ def zcy_forward_step_penetration_free(
 ):
     particle_index = wp.tid()
 
-    prev_pos[particle_index] = pos[particle_index]
     vel_new = vel[particle_index] + gravity * dt
-    pos_inertia = pos[particle_index] + vel_new * dt
+    pos_inertia = prev_pos[particle_index] + vel_new * dt
     inertia[particle_index] = pos_inertia
 
     pos[particle_index] = apply_conservative_bound_truncation(
         particle_index, pos_inertia, pos_prev_collision_detection, particle_conservative_bounds
+    )
+
+@wp.kernel
+def zcy_truncation_by_conservative_bounds(
+    pos_new: wp.array(dtype=wp.vec3),
+    pos_prev_collision_detection: wp.array(dtype=wp.vec3),
+    particle_conservative_bounds: wp.array(dtype=float),
+    pos_cur_truncation: wp.array(dtype=wp.vec3),
+):
+    particle_index = wp.tid()
+
+    pos_cur_truncation[particle_index] = apply_conservative_bound_truncation(
+        particle_index, pos_new[particle_index], pos_prev_collision_detection, particle_conservative_bounds
     )
 
 @wp.kernel
@@ -2299,6 +2311,21 @@ def zcy_VBD_accumulate_contact_force_and_hessian(
     friction_mu: float,
     friction_epsilon: float,
     edge_edge_parallel_epsilon: float,
+    # body-particle contact
+    particle_radius: wp.array(dtype=float),
+    soft_contact_particle: wp.array(dtype=int),
+    contact_count: wp.array(dtype=int),
+    contact_max: int,
+    shape_material_mu: wp.array(dtype=float),
+    shape_body: wp.array(dtype=int),
+    body_q: wp.array(dtype=wp.transform),
+    body_q_prev: wp.array(dtype=wp.transform),
+    body_qd: wp.array(dtype=wp.spatial_vector),
+    body_com: wp.array(dtype=wp.vec3),
+    contact_shape: wp.array(dtype=int),
+    contact_body_pos: wp.array(dtype=wp.vec3),
+    contact_body_vel: wp.array(dtype=wp.vec3),
+    contact_normal: wp.array(dtype=wp.vec3),
     # outputs: particle force and hessian
     particle_forces: wp.array(dtype=wp.vec3),
     particle_hessians: wp.array(dtype=wp.mat33),
@@ -2454,6 +2481,39 @@ def zcy_VBD_accumulate_contact_force_and_hessian(
                 wp.atomic_add(particle_hessians, particle_idx*N+tri_a, collision_hessian_30)
                 wp.atomic_add(particle_hessians, particle_idx*N+tri_b, collision_hessian_31)
                 wp.atomic_add(particle_hessians, particle_idx*N+tri_c, collision_hessian_32)
+
+
+    particle_body_contact_count = min(contact_max, contact_count[0])
+
+    if t_id < particle_body_contact_count:
+        particle_idx = soft_contact_particle[t_id]
+
+        body_contact_force, body_contact_hessian = evaluate_body_particle_contact(
+            particle_idx,
+            pos[particle_idx],
+            pos_prev[particle_idx],
+            t_id,
+            soft_contact_ke,
+            soft_contact_kd,
+            friction_mu,
+            friction_epsilon,
+            particle_radius,
+            shape_material_mu,
+            shape_body,
+            body_q,
+            body_q_prev,
+            body_qd,
+            body_com,
+            contact_shape,
+            contact_body_pos,
+            contact_body_vel,
+            contact_normal,
+            dt,
+        )
+
+        # particle
+        wp.atomic_add(particle_forces, particle_idx, body_contact_force)
+        wp.atomic_add(particle_hessians, particle_idx*N+particle_idx, body_contact_hessian)
 # zcy
 
 
@@ -2897,8 +2957,8 @@ class zcy_SolverVBD(SolverBase):
         model: Model,
         iterations: int = 10,
         handle_self_contact: bool = False,
-        self_contact_radius: float = 0.2,
-        self_contact_margin: float = 0.2,
+        self_contact_radius: float = 0.3,
+        self_contact_margin: float = 0.32,
         integrate_with_external_rigid_solver: bool = False,
         penetration_free_conservative_bound_relaxation: float = 0.42,
         friction_epsilon: float = 1e-2,
@@ -3474,7 +3534,7 @@ class zcy_SolverVBD(SolverBase):
 
 # zcy
     def zcy_compute_hessian_force(
-        self, pos_warp, pos_prev_warp, dt: float, control: Control = None
+        self, pos_warp, pos_prev_warp, dt: float, state_in: State, state_out: State, control: Control = None, contacts: Contacts = None,
     ):
         # input
         #pos_warp = wp.array(pos, dtype=wp.float32)
@@ -3510,6 +3570,21 @@ class zcy_SolverVBD(SolverBase):
                         self.model.soft_contact_mu,
                         self.friction_epsilon,
                         self.trimesh_collision_detector.edge_edge_parallel_epsilon,
+                        # body-particle contact
+                        self.model.particle_radius,
+                        contacts.soft_contact_particle,
+                        contacts.soft_contact_count,
+                        contacts.soft_contact_max,
+                        self.model.shape_material_mu,
+                        self.model.shape_body,
+                        state_out.body_q if self.integrate_with_external_rigid_solver else state_in.body_q,
+                        state_in.body_q if self.integrate_with_external_rigid_solver else None,
+                        self.model.body_qd,
+                        self.model.body_com,
+                        contacts.soft_contact_shape,
+                        contacts.soft_contact_body_pos,
+                        contacts.soft_contact_body_vel,
+                        contacts.soft_contact_normal,
                     ],
                     outputs=[self.particle_forces, self.particle_hessians],
                     device=self.device,
@@ -3518,7 +3593,7 @@ class zcy_SolverVBD(SolverBase):
     def zcy_forward_step_penetration_free(
         self, pos_warp, pos_prev_warp, vel_warp, dt: float, control: Control = None
     ):
-        self.zcy_collision_detection_penetration_free(pos_warp, dt)
+        self.zcy_collision_detection_penetration_free(pos_prev_warp)
 
         model=self.model
 
@@ -3539,14 +3614,39 @@ class zcy_SolverVBD(SolverBase):
             ],
             dim=model.particle_count,
             device=self.device,
-        )        
+        )
+        print('\n---start truncation---')
+        print('min(conservation bounds)', np.min(self.particle_conservative_bounds.numpy()))
+        #print('dis(pos_prev, pos_prev_collision)', np.max(np.abs(pos_prev_warp.numpy()-self.pos_prev_collision_detection.numpy())))
+        norms = np.linalg.norm(pos_warp.numpy()-self.pos_prev_collision_detection.numpy(), axis=1)
+        print('max(norms-self.particle_conservative_bounds):', np.max(norms-self.particle_conservative_bounds.numpy()))
 
-    def zcy_collision_detection_penetration_free(self, pos_warp, dt):
+        #print('max(pos_warp-self.pos_prev_collision):', np.max(np.linalg.norm(pos_warp.numpy()-self.pos_prev_collision_detection.numpy(), axis=1)))
+        
+        #print('pos_warp', id(pos_warp))
+        #print('pos_prev_warp', id(pos_prev_warp))
+        
+        # must include this after you update the mesh position, otherwise the collision detection results are not precise
         self.trimesh_collision_detector.refit(pos_warp)
+        self.trimesh_collision_detector.triangle_triangle_intersection_detection()
+
+        # ===== 打印三角形相交检测结果 =====
+        print("===== Triangle-Triangle Intersection Results =====")
+        # 2. 每个三角形的相交数量
+        counts = self.trimesh_collision_detector.triangle_intersecting_triangles_count.numpy()
+        # 额外：总相交数量
+        print("Total intersections:", counts.sum())
+
+        #a = pos_warp.numpy()
+        #b = pos_prev_warp.numpy()
+        #print('max(pos_cur-pos_prev):', np.max(a-b), np.max(b-a))        
+
+    def zcy_collision_detection_penetration_free(self, pos_prev_warp):
+        self.trimesh_collision_detector.refit(pos_prev_warp)
         self.trimesh_collision_detector.vertex_triangle_collision_detection(self.self_contact_margin)
         self.trimesh_collision_detector.edge_edge_collision_detection(self.self_contact_margin)
 
-        self.pos_prev_collision_detection.assign(pos_warp)
+        self.pos_prev_collision_detection.assign(pos_prev_warp)
         wp.launch(
             kernel=compute_particle_conservative_bound,
             inputs=[
@@ -3561,6 +3661,46 @@ class zcy_SolverVBD(SolverBase):
             dim=self.model.particle_count,
             device=self.device,
         )
+        
+    def zcy_truncation_by_conservative_bound(self, pos_new):
+
+        pos_old = wp.clone(pos_new)
+
+        wp.launch(
+            kernel=zcy_truncation_by_conservative_bounds,
+            inputs=[
+                pos_old,
+                self.pos_prev_collision_detection,
+                self.particle_conservative_bounds,
+            ],
+            outputs=[
+                pos_new,
+            ],
+            dim=self.model.particle_count,
+            device=self.device,
+        )
+
+        print('\n---truncation---')
+        print('min(conservation bounds)', np.min(self.particle_conservative_bounds.numpy()))
+        norms_pos_old = np.linalg.norm(pos_old.numpy()-self.pos_prev_collision_detection.numpy(), axis=1)
+        print('max(norms_pos_old-self.particle_conservative_bounds):', np.max(norms_pos_old-self.particle_conservative_bounds.numpy()))
+        norms_pos_new = np.linalg.norm(pos_new.numpy()-self.pos_prev_collision_detection.numpy(), axis=1)
+        print('max(norms_pos_new-self.particle_conservative_bounds):', np.max(norms_pos_new-self.particle_conservative_bounds.numpy()))
+
+        # must include this after you update the mesh position, otherwise the collision detection results are not precise
+        self.trimesh_collision_detector.refit(pos_new)
+        self.trimesh_collision_detector.triangle_triangle_intersection_detection()
+
+        # ===== 打印三角形相交检测结果 =====
+        print("===== Triangle-Triangle Intersection Results =====")
+        # 2. 每个三角形的相交数量
+        counts = self.trimesh_collision_detector.triangle_intersecting_triangles_count.numpy()
+        # 额外：总相交数量
+        print("Total intersections:", counts.sum())
+
+        #print('pos_old', id(pos_old))
+        #print('pos_new', id(pos_new))
+
 # zcy
 
 
