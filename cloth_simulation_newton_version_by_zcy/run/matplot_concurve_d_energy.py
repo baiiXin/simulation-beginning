@@ -1,4 +1,8 @@
 import matplotlib.pyplot as plt
+
+import sys
+import os
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from sim import generate_cloth
 
 # 示例数据
@@ -40,13 +44,21 @@ tolerance_newton = 1e-16
 # 计算原始 Times_ms
 original_Times_ms = [sum(Times_ms[:i+1]) for i in range(len(Times_ms))]
 
+# 去掉初始步
+Newton_steps = Newton_steps[1:]
+Energy_norm = Energy_norm[1:]
+min_energy = min(Energy_norm)
+Energy_norm = Energy_norm - min_energy
+original_Times_ms = original_Times_ms[1:]
+print(Energy_norm)
+
 # 创建图形
 fig, ax1 = plt.subplots(figsize=(10, 6))
 
 # 绘制收敛曲线 (Newton_steps 作为底部 X 轴)
 ax1.plot(Newton_steps, Energy_norm, marker='o', linestyle='-', color='b', label='Energy vs. Newton Steps')
 ax1.set_xlabel('Iterations', fontsize=14)
-ax1.set_ylabel('Energy', fontsize=14)
+ax1.set_ylabel('Delta Energy', fontsize=14)
 #ax1.set_yscale('log')  # 设置纵坐标为对数刻度
 ax1.set_ylim(min(Energy_norm), max(Energy_norm))  # 设置纵坐标范围
 

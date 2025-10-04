@@ -4,6 +4,9 @@ from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 from matplotlib.animation import FuncAnimation
 from matplotlib.colors import LightSource  # 导入光源类
 
+import sys
+import os
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from sim import generate_cloth
 
 import imageio_ffmpeg

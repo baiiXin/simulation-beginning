@@ -1,4 +1,8 @@
 import matplotlib.pyplot as plt
+
+import sys
+import os
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from sim import generate_cloth
 
 # 示例数据
@@ -10,16 +14,16 @@ residuals = [1.0, 0.5, 0.25, 0.1, 0.05, 0.025, 0.01, 0.005, 0.0025, 0.001]  # �
 # triangles: (Ne, 3) array of vertex indices
 # ===== 仿真参数 =====
 # 网格生成
-a = -2.0
+a = -2
 b = 2.0 
-c = -2.0
-d = 2.0
+c = 0.0
+d = 4.0
 h1 = 0.5
 h2 = 0.5
-fixed_num = int((b-a)/h1+1) 
+fixed_num = 0 #int((b-a)/h1+1) 
 
 # 材料参数
-z=8.0
+z=1
 mass_m = 1
 stiff_k = 8000
 
@@ -29,7 +33,7 @@ gravity = 9.8
 
 # simulation
 # 初始参数
-dt = 0.03
+dt = 0.02
 N = 1
 ite_num = 12
 tolerance_newton = 1e-16
@@ -44,15 +48,15 @@ original_Times_ms = [sum(Times_ms[:i+1]) for i in range(len(Times_ms))]
 fig, ax1 = plt.subplots(figsize=(10, 6))
 
 # 绘制收敛曲线 (Newton_steps 作为底部 X 轴)
-ax1.plot(Newton_steps, Residual_norm, marker='o', linestyle='-', color='b', label='Residual vs. Newton Steps')
-ax1.set_xlabel('Iterations', fontsize=14)
-ax1.set_ylabel('Residual', fontsize=14)
-ax1.set_yscale('log')  # 设置纵坐标为对数刻度
-ax1.set_ylim(1e-16, 1e0)  # 设置纵坐标范围
+ax1.plot(Newton_steps, Energy_norm, marker='o', linestyle='-', color='b', label='Energy vs. Newton Steps')
+ax1.set_xlabel('Newton Steps', fontsize=14)
+ax1.set_ylabel('Energy', fontsize=14)
+#ax1.set_yscale('log')  # 设置纵坐标为对数刻度
+ax1.set_ylim(min(Energy_norm), max(Energy_norm))  # 设置纵坐标范围
 
-# 创建第二个坐标轴 (Times_ms 作为顶部 X 轴)
+# 创建第二个坐标轴 (original_Times_ms 作为顶部 X 轴)
 ax2 = ax1.twiny()  # 与 ax1 共享 y 轴
-ax2.plot(original_Times_ms, Residual_norm, marker='x', linestyle='--', color='r', label='Residual vs. Time (ms)')
+ax2.plot(original_Times_ms, Energy_norm, marker='x', linestyle='--', color='r', label='Energy vs. Time (ms)')
 ax2.set_xlabel('Time (ms)', fontsize=14)
 
 # 添加图例

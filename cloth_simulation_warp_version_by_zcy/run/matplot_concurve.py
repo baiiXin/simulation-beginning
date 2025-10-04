@@ -1,9 +1,13 @@
 import matplotlib.pyplot as plt
+
+import sys
+import os
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from sim import generate_cloth
 
 # 示例数据
-# newton_steps = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]  # Newton 迭代步数
-# residuals = [1.0, 0.5, 0.25, 0.1, 0.05, 0.025, 0.01, 0.005, 0.0025, 0.001]  # 每一步的残差
+newton_steps = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]  # Newton 迭代步数
+residuals = [1.0, 0.5, 0.25, 0.1, 0.05, 0.025, 0.01, 0.005, 0.0025, 0.001]  # 每一步的残差
 # =================== 数据构造部分 ===================
 # 你的数据（假设已加载）
 # cloth_data: List of (Nm, 3) arrays
@@ -40,27 +44,19 @@ tolerance_newton = 1e-16
 # 计算原始 Times_ms
 original_Times_ms = [sum(Times_ms[:i+1]) for i in range(len(Times_ms))]
 
-# 去掉初始步
-Newton_steps = Newton_steps[1:]
-Energy_norm = Energy_norm[1:]
-min_energy = min(Energy_norm)
-Energy_norm = Energy_norm - min_energy
-original_Times_ms = original_Times_ms[1:]
-print(Energy_norm)
-
 # 创建图形
 fig, ax1 = plt.subplots(figsize=(10, 6))
 
 # 绘制收敛曲线 (Newton_steps 作为底部 X 轴)
-ax1.plot(Newton_steps, Energy_norm, marker='o', linestyle='-', color='b', label='Energy vs. Newton Steps')
+ax1.plot(Newton_steps, Residual_norm, marker='o', linestyle='-', color='b', label='Residual vs. Newton Steps')
 ax1.set_xlabel('Iterations', fontsize=14)
-ax1.set_ylabel('Delta Energy', fontsize=14)
-#ax1.set_yscale('log')  # 设置纵坐标为对数刻度
-ax1.set_ylim(min(Energy_norm), max(Energy_norm))  # 设置纵坐标范围
+ax1.set_ylabel('Residual', fontsize=14)
+ax1.set_yscale('log')  # 设置纵坐标为对数刻度
+ax1.set_ylim(1e-16, 1e0)  # 设置纵坐标范围
 
-# 创建第二个坐标轴 (original_Times_ms 作为顶部 X 轴)
+# 创建第二个坐标轴 (Times_ms 作为顶部 X 轴)
 ax2 = ax1.twiny()  # 与 ax1 共享 y 轴
-ax2.plot(original_Times_ms, Energy_norm, marker='x', linestyle='--', color='r', label='Energy vs. Time (ms)')
+ax2.plot(original_Times_ms, Residual_norm, marker='x', linestyle='--', color='r', label='Residual vs. Time (ms)')
 ax2.set_xlabel('Time (ms)', fontsize=14)
 
 # 添加图例

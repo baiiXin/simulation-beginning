@@ -4,6 +4,9 @@ from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 from matplotlib.animation import FuncAnimation
 from matplotlib.colors import LightSource  # 导入光源类
 
+import sys
+import os
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 from sim import generate_cloth
 
 import imageio_ffmpeg
@@ -27,12 +30,12 @@ h2 = 0.5
 #fixed_num0 = (int((b-a)/h1)+1)*2 + 1
 #fixed_num1 = (int((b-a)/h1)+1)*3 + 1 
 #fixed_num = [fixed_num0, fixed_num1]
-fixed_num = 0 #int((b-a)/h1+1)
+fixed_num = 0 # int((b-a)/h1+1)
 
 # 材料参数
 z=8.0
 mass_m = 1
-stiff_k = 800
+stiff_k = 8000
 
 # 阻尼参数
 dump = 0.98
@@ -41,9 +44,9 @@ gravity = 9.8
 # simulation
 # 初始参数
 dt = 0.03
-N = 100
-ite_num = 10
-tolerance_newton = 1e-4
+N = 30
+ite_num = 6
+tolerance_newton = 1e-6
 
 # 球体参数
 sphere_center = np.array([0, -0.5, 6.0])  # 球心坐标
@@ -55,6 +58,9 @@ sphere_radius = 0.99                      # 球半径
 # =================== 动画部分 ===================
 fig = plt.figure(figsize=(8, 6))
 ax = fig.add_subplot(111, projection='3d')
+
+# 关闭透视，使用正交投影
+ax.set_proj_type('ortho')   # <—— 关键一行
 
 # 设置视角 - 仰角30度，方位角45度
 ax.view_init(elev=15, azim=145)  # elev=0表示水平视角，azim=90表示从x轴方向看过去
