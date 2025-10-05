@@ -54,3 +54,8 @@ torch.set_default_dtype(torch.float64)
 
 # 验证
 print("Default dtype:", torch.get_default_dtype())  # 输出: torch.float64
+
+
+vec = torch.rand((3,3,3), dtype=torch.float64)
+print(vec)
+print(vec[0])

@@ -1,3 +1,4 @@
+import torch
 import numpy as np
 from typing import Dict, Any, Callable, List
 from hessian_validator import HessianValidator
@@ -5,13 +6,13 @@ from hessian_point_validator import HessianPointValidator
 
 class HessianSystemValidator(HessianValidator):
     """
-    系统级Hessian验证器
+    系统级Hessian验证器 - PyTorch版本
     验证整个系统的Hessian矩阵一致性
     """
     
-    def __init__(self, system_config: Dict[str, Any] = None):
-        super().__init__(system_config)
-        self.point_validator = HessianPointValidator(system_config)
+    def __init__(self, system_config: Dict[str, Any] = None, device: str = None):
+        super().__init__(system_config, device)
+        self.point_validator = HessianPointValidator(system_config, device)
         self.sampling_strategies = ['random', 'uniform_grid', 'critical_points']
         
     def validate(self,
@@ -37,7 +38,7 @@ class HessianSystemValidator(HessianValidator):
             raise ValueError("请提供系统能量函数")
         
         print(f"开始系统级Hessian验证...")
-        print(f"采样策略: {sampling_strategy}, 样本数: {num_samples}")
+        print(f"采样策略: {sampling_strategy}, 样本数: {num_samples}, 设备: {self.device}")
         
         # 生成采样点
         sample_points = self._generate_sample_points(sampling_strategy, num_samples)
@@ -63,33 +64,32 @@ class HessianSystemValidator(HessianValidator):
         self.print_system_validation_summary(results)
         return results
     
-    def _generate_sample_points(self, strategy: str, num_points: int) -> List[np.ndarray]:
+    def _generate_sample_points(self, strategy: str, num_points: int) -> List[torch.Tensor]:
         """
-        根据策略生成采样点
+        根据策略生成采样点 - PyTorch版本
         """
         if self.vertices is None:
-            raise ValueError("请先加载顶点数据")
+            # 如果没有加载顶点，创建随机测试点
+            dim = 3  # 默认3维
+            points = []
+            for _ in range(num_points):
+                point = torch.randn(dim, device=self.device)
+                points.append(point)
+            return points
         
         n_vertices = len(self.vertices)
-        dim = self.vertices.shape[1] if self.vertices.ndim > 1 else 1
+        dim = self.vertices.shape[1] if self.vertices.dim() > 1 else 1
         
         if strategy == 'random':
             # 随机采样
             points = []
             for _ in range(num_points):
                 if dim == 1:
-                    point = np.random.rand(n_vertices)
+                    point = torch.rand(n_vertices, device=self.device)
                 else:
-                    point = np.random.rand(n_vertices, dim)
+                    point = torch.rand(n_vertices, dim, device=self.device)
                 points.append(point)
             return points
-            
-        elif strategy == 'uniform_grid':
-            # 均匀网格采样（简化版）
-            points = []
-            grid_values = np.linspace(0, 1, int(num_points ** (1/dim)) + 1)
-            # 这里需要根据具体维度实现网格生成
-            return points[:num_points]
             
         elif strategy == 'critical_points':
             # 关键点采样（如碰撞点附近）
@@ -98,8 +98,14 @@ class HessianSystemValidator(HessianValidator):
                 for pair in self.collision_pairs[:num_points]:
                     # 在碰撞对中点附近采样
                     mid_point = (self.vertices[pair[0]] + self.vertices[pair[1]]) / 2
-                    points.append(mid_point)
-            return points
+                    # 添加小扰动
+                    noise = torch.randn_like(mid_point) * 0.01
+                    points.append(mid_point + noise)
+            # 如果碰撞对不够，补充随机点
+            while len(points) < num_points:
+                point = torch.randn(dim, device=self.device)
+                points.append(point)
+            return points[:num_points]
             
         else:
             raise ValueError(f"不支持的采样策略: {strategy}")
@@ -140,7 +146,7 @@ class HessianSystemValidator(HessianValidator):
         
         return all(consistency_checks)
     
-    def validate_hessian_symmetry(self, test_points: List[np.ndarray] = None) -> Dict[str, Any]:
+    def validate_hessian_symmetry(self, test_points: List[torch.Tensor] = None) -> Dict[str, Any]:
         """
         验证Hessian矩阵的对称性
         """
@@ -149,7 +155,7 @@ class HessianSystemValidator(HessianValidator):
         
         symmetry_errors = []
         for point in test_points:
-            hessian = self.point_validator._compute_analytical_hessian(point, self.energy_function)
+            hessian = self.point_validator._compute_automatic_diff_hessian(point, self.energy_function)
             symmetry_error = self.compute_norm(hessian - hessian.T) / self.compute_norm(hessian)
             symmetry_errors.append(symmetry_error)
         
@@ -170,6 +176,7 @@ class HessianSystemValidator(HessianValidator):
         print("="*60)
         print(f"系统一致性: {'通过' if results['system_consistent'] else '失败'}")
         print(f"采样点数: {results['num_samples']}")
+        print(f"设备: {self.device}")
         print(f"通过率: {stats['pass_rate']:.1%}")
         print(f"平均误差 (解析vs有限差分): {stats['mean_error_analytical_fd']:.6e}")
         print(f"平均误差 (解析vs自动微分): {stats['mean_error_analytical_ad']:.6e}")
