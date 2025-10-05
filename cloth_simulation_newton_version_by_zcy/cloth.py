@@ -142,6 +142,7 @@ class Mass:
         #self.pos_warp = wp.array(self.pos_warp, dtype=wp.vec3)
         #self.pos_prev_warp = wp.array(self.pos_prev, dtype=wp.vec3)
         self.vel_warp = wp.array(self.vel_cur, dtype=wp.vec3)
+        self.vel_prev_warp = wp.array(self.vel_prev, dtype=wp.vec3)
         self.pos_warp = self.state_1.particle_q
         self.pos_prev_warp = self.state_0.particle_q
         
@@ -167,6 +168,7 @@ class Mass:
             1. 直接修改mss类的位置和速度
             2. 绘制收敛曲线的参数:
                 Newton_step, times_ms, Error_dx_norm, Residual_norm, Energy_norm
+        '''
         '''
         print('\n---bounds and forward step---')
         self.contacts = self.model.collide(self.state_0)
@@ -200,7 +202,7 @@ class Mass:
         #print('max(pos_cur-pos_prev)0:', np.max(pos_cur-self.pos_prev), np.max(self.pos_prev-pos_cur))
         #print('max(pos_cur-pos_prev)1:', np.max(self.pos_cur-self.pos_prev), np.max(self.pos_prev-self.pos_cur))
         self.vbd_integrator.zcy_collision_detection_penetration_free(self.pos_warp)
-        
+        '''
         # Newton Method (Implicit Euler)
         # 计时
         times_ms = []
@@ -246,14 +248,14 @@ class Mass:
                 pos_new[p] += dX[3*i : 3*i+3]
             self.pos_cur = pos_new.copy()
             self.pos_warp = wp.array(self.pos_cur, dtype=wp.vec3)
-
+            '''
             # 截断
             # self.truncate_displacement(self.bounds, self.pos_cur, self.pos_cur-self.pos_prev)
             # print('self.pos_warp', id(self.pos_warp))
             self.vbd_integrator.zcy_truncation_by_conservative_bound(self.pos_warp)
             self.pos_cur = self.pos_warp.numpy()
             # print('self.pos_warp', id(self.pos_warp))
-
+            '''
             # 组装时间
             end_time = time.time()  # 结束时间
             times_ms.append((end_time - start_time) * 1000)  # 计算并存储运行时间（毫秒）
@@ -292,11 +294,13 @@ class Mass:
         print('\n---update---')
         self.vel_cur = (self.pos_cur - self.pos_prev) / self.dt * self.dump
         self.pos_cur, self.pos_prev = self.pos_prev, self.pos_cur
+        self.vel_prev = self.vel_cur.copy()
 
         # transform
         self.pos_warp = wp.array(self.pos_cur, dtype=wp.vec3)
         self.pos_prev_warp = wp.array(self.pos_prev, dtype=wp.vec3)
         self.vel_warp = wp.array(self.vel_cur, dtype=wp.vec3)
+        self.vel_prev_warp = wp.array(self.vel_prev, dtype=wp.vec3)
 
         return Newton_step, times_ms, Error_dx_norm, Residual_norm, Energy_norm
 
@@ -306,10 +310,11 @@ class Mass:
         output: 直接修改 self.Hessian 和 self.force; 
                 不是实际的force和hessian; 对应牛顿迭代的A和b
         '''
+        '''
         # self_collision_force_and_hessian
         self.vbd_integrator.zcy_compute_hessian_force(self.pos_warp, self.pos_prev_warp, self.dt, self.state_0, self.state_1, self.control, self.contacts)
         self.particle_forces, self.particle_hessians = self.vbd_integrator.particle_forces.numpy(), self.vbd_integrator.particle_hessians.numpy()
-
+        
         # 测试 
         print('self.particle_forces', self.particle_forces.shape, type(self.particle_forces))
         #print('self.particle_hessians', self.particle_hessians.shape, type(self.particle_hessians))
@@ -321,7 +326,7 @@ class Mass:
         print('max(self.particle_hessians):', np.max(np.abs(self.particle_hessians)))
         #print(np.argwhere(np.isnan(self.particle_forces)))
         #print(np.argwhere(np.isnan(self.particle_hessians)))
-        
+        '''
         # 获取质点数量和空间维度
         Nm = self.num  # 质点数量
         space_dim = 3  # 空间维度，应该是3
@@ -369,16 +374,16 @@ class Mass:
             g[(j*space_dim):(j*space_dim+space_dim)] = g_vec
 
             # 接触力
-            f[(j*space_dim):(j*space_dim+space_dim)] += self.particle_forces[j]
-            for i in range(Nm):
-                H[(j*space_dim):(j*space_dim+space_dim), (i*space_dim):(i*space_dim+space_dim)] += self.particle_hessians[j*Nm+i]
+            #f[(j*space_dim):(j*space_dim+space_dim)] += self.particle_forces[j]
+            #for i in range(Nm):
+            #    H[(j*space_dim):(j*space_dim+space_dim), (i*space_dim):(i*space_dim+space_dim)] += self.particle_hessians[j*Nm+i]
             
             # 质量/单位矩阵
             I_eyes = np.eye(space_dim)
             I[(j*space_dim):(j*space_dim+space_dim), (j*space_dim):(j*space_dim+space_dim)] = I_eyes
             
             # 计算F向量
-            F[(j*space_dim):(j*space_dim+space_dim)] = self.pos_cur[j] - self.pos_prev[j] - self.dt * self.vel_cur[j]
+            F[(j*space_dim):(j*space_dim+space_dim)] = self.pos_cur[j] - self.pos_prev[j] - self.dt * self.vel_prev[j]
         
         # 返回计算结果
         self.force = F - self.dt * self.dt * (1/self.mass) * (f+g)  # 计算b向量
