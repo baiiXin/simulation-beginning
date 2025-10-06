@@ -1,6 +1,9 @@
 import torch
 from hessian_point_validator import HessianPointValidator
+
 torch.set_default_dtype(torch.float64)
+# 设置打印精度为 10 位小数
+torch.set_printoptions(precision=30)
 
 import matplotlib.pyplot as plt
 
@@ -24,11 +27,43 @@ class ContactEnergy:
         """解析Hessian：对于弹簧能量就是刚度矩阵"""
         return self.stiffness * torch.outer(self.hat_normal,self.hat_normal)
 
+class QuaEnergy:
+    def __init__(self):
+        pass
+    
+    def __call__(self, x_a, x_b):
+        """能量值计算"""
+        return torch.dot(x_a, x_a) + torch.dot(x_b, x_b)
+
+    def analytical_force(self, x_a, x_b):
+        """解析力：对于弹簧能量就是力"""
+        return 2 * x_a
+    
+    def analytical_hessian(self, x_a, x_b):
+        """解析Hessian：对于弹簧能量就是刚度矩阵"""
+        return 2 * torch.eye(3, device='cpu')
+
+class LineEnergy:
+    def __init__(self):
+        pass
+    
+    def __call__(self, x_a, x_b):
+        """能量值计算"""
+        return torch.sum(x_a) + torch.sum(x_b)
+
+    def analytical_force(self, x_a, x_b):
+        """解析力：对于弹簧能量就是力"""
+        return torch.ones_like(x_a)
+    
+    def analytical_hessian(self, x_a, x_b):
+        """解析Hessian：对于弹簧能量就是刚度矩阵"""
+        return torch.zeros((3, 3), device='cpu')
+
 # 测试点
-test_point=torch.tensor([[0.01, 0.01, 0.01], [0.0, 0.0, 0.0]], device='cpu')
+test_point=torch.tensor([[1.0, 1.0, 1.0], [0.0, 0.0, 0.0]], device='cpu')
 
 # 使用
-energy = ContactEnergy(point=test_point)
+energy = LineEnergy()
 print('\nceshi:', energy(test_point[0], test_point[1]),'\n')
 
 # 点验证
@@ -40,9 +75,15 @@ result = point_validator.validate(test_point, energy)
 #system_validator.set_energy_function(example_energy_function)
 #system_result = system_validator.validate(sampling_strategy='random', num_samples=5)
 
+print('error_fd_type:', type(result['finite_diff_hessian']))
+error_fd = result['finite_diff_hessian'] - result['analytical_hessian']
+norm_fd = torch.max(torch.abs(error_fd))
+
+print('\nerror_fd:', error_fd, '\n')
+print('\nnorm_fd:', norm_fd, '\n')
 
 print('\nresult:', type(result))
-
+'''
 tolerance = [0.5, 0.1, 1e-2, 1e-3, 1e-4, 1e-5, 1e-6, 1e-7, 1e-8]
 
 error_analytical_vs_finite_diff = []
@@ -53,6 +94,11 @@ for t in tolerance:
     result = point_validator.validate(test_point, energy)
     error_analytical_vs_finite_diff.append(result['error_analytical_vs_finite_diff'])
     error_analytical_vs_auto_diff.append(result['error_analytical_vs_auto_diff'])
+
+torch.set_printoptions(precision=16, sci_mode=False)
+print('\nresult:', result['finite_diff_hessian']+1e-15)
+print(error_analytical_vs_finite_diff)
+print(error_analytical_vs_auto_diff)
 
 # 创建图形
 fig, ax1 = plt.subplots(figsize=(10, 6))
@@ -75,3 +121,4 @@ plt.title('Error analytical vs. finite diff vs. auto diff', fontsize=16)
 plt.grid(True, which="major", ls="--", c='0.7', alpha=0.7)  # 只显示主刻度网格线
 plt.tight_layout()
 plt.show()
+'''

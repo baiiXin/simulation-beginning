@@ -60,12 +60,12 @@ class HessianPointValidator(HessianValidator):
         results = {
             'validation_passed': validation_passed,
             'energy': energy_func(test_point[0], test_point[1]).item(),
-            'analytical_hessian': analytical_results[1].cpu().detach().numpy(),
-            'finite_diff_hessian': finite_diff_results[1].cpu().detach().numpy(),
-            'auto_diff_hessian': auto_diff_results[1].cpu().detach().numpy(),
-            'analytical_force': analytical_results[0].cpu().detach().numpy(),
-            'finite_diff_force': finite_diff_results[0].cpu().detach().numpy(),
-            'auto_diff_force': auto_diff_results[0].cpu().detach().numpy(),
+            'analytical_hessian': analytical_results[1],
+            'finite_diff_hessian': finite_diff_results[1],
+            'auto_diff_hessian': auto_diff_results[1],
+            'analytical_force': analytical_results[0],
+            'finite_diff_force': finite_diff_results[0],
+            'auto_diff_force': auto_diff_results[0],
             'error_analytical_vs_finite_diff': error_analytical_fd,
             'error_analytical_vs_auto_diff': error_analytical_ad,
             'error_finite_diff_vs_auto_diff': error_fd_ad,
@@ -136,7 +136,12 @@ class HessianPointValidator(HessianValidator):
                 f_plus  = f(x + perturb)
                 f_minus = f(x - perturb)
 
+                print(f"f_plus: {f_plus}, f_minus: {f_minus}")
+                print(f"f_plus - f_minus: {f_plus - f_minus}")
+                print(f"(f_plus - f_minus) / (2 * 1e-3): {(f_plus - f_minus) / (2 * h)}")
+
                 grad.view(-1)[idx] = (f_plus - f_minus) / (2 * h)
+                print(f"grad[{idx}]: {grad.view(-1)[idx]}")
             return grad
 
         def numerical_jacobian(f, x, h=1e-5):
@@ -180,13 +185,26 @@ class HessianPointValidator(HessianValidator):
         energy = energy_func(x_a, x_b)
         grad = torch.autograd.grad(energy, x_a, create_graph=True)[0]
         
+        # print("自动微分计算Force:", grad)
         force = grad
 
         # 计算Hessian
         hessian = torch.zeros((n, n), device=self.device)
+        
+        # 对于线性函数，Hessian为零，但我们仍然可以计算
+        # 不需要特殊处理，因为线性函数的二阶导数就是零
+        
         for i in range(n):
             # 对每个梯度分量求导
             grad_i = grad[i]
+            
+            # 检查梯度是否需要梯度
+            if not grad_i.requires_grad:
+                # 如果梯度是常数（不需要梯度），则Hessian对应行为零
+                # 这种情况下，我们已经初始化hessian为零矩阵，所以不需要额外操作
+                continue
+                
+            # 只有当梯度需要梯度时才计算二阶导数
             grad2 = torch.autograd.grad(grad_i, x_a, retain_graph=True)[0]
             hessian[i, :] = grad2
         
