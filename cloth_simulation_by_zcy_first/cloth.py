@@ -40,6 +40,115 @@ class Mass:
         self.Spring = Spring # 弹簧
         self.dt = dt # 时间步长
         self.tolerance_newton = tolerance_newton # 牛顿迭代的容差
+
+        # fixed points
+        # 初始化
+        self.fixed_idx = [36, 44] #[72, 80] #[0, 8] #[36, 44]
+        self.all_idx = np.arange(self.num)
+        self.free_idx = np.setdiff1d(self.all_idx, self.fixed_idx)
+        free_idx = np.array(self.free_idx)
+        dof_matrix = 3 * free_idx[:, np.newaxis] + np.arange(3)
+        self.free_dof = dof_matrix.flatten()
+
+    def Single_Newton_Method(self, Spring: Spring, fixed_num, ite_num, space_dim=3):
+        '''
+        功能:  牛顿迭代, 一个时间步
+        input: 质点, 弹簧, 迭代步, 固定点数量
+        output: 
+            1. 直接修改mss类的位置和速度
+            2. 绘制收敛曲线的参数:
+                Newton_step, times_ms, Error_dx_norm, Residual_norm, Energy_norm
+        '''
+        # Newton Method (Implicit Euler)
+        # 计时
+        times_ms = []
+        # 残差曲线
+        Newton_step = []
+        Error_dx_norm = []
+        Residual_norm = []
+        Energy_norm = []
+        
+        # 迭代初值
+        self.pos_hat = self.pos.copy()
+
+        # 迭代
+        for times in range(ite_num):
+            # 计时
+            start_time = time.time()
+
+            # 计算能量
+            Energy = self.Energy_compute(Spring)
+            # 组装
+            self.assemebel_HF(Spring)
+
+            # 注意：只求解自由部分
+            A_free = -self.Hessian[np.ix_(self.free_dof, self.free_dof)]
+            b_free = self.force[self.free_dof]
+        
+            # fixed_num
+            #A, b = self.boundary_solve(fixed_num, space_dim)
+            
+            # 矩阵稀疏化
+            A_sparse = csr_matrix(A_free)
+            
+            # 计算dX
+            dX_free, info = cg(A_sparse, b_free)
+            # print('cg:',info)
+            '''
+            # 更新位置（只更新非固定点）
+            for j in range(fixed_num, self.num):
+                idx = (j-fixed_num)*space_dim
+                self.pos_hat[j] += dX[idx:idx+space_dim]
+            self.vel_hat = (self.pos_hat - self.pos) / self.dt * self.dump
+            '''
+            pos_new = self.pos_hat.copy()
+            # 将 x_free 重新写回到 pos_new 对应的自由点
+            for i, p in enumerate(self.free_idx):
+                pos_new[p] += dX_free[3*i : 3*i+3]
+            self.pos_hat = pos_new.copy()
+            '''
+            # 更新位置（只更新非固定点）
+            for j in range(self.num):
+                self.pos_hat[j] += dX[j:j+space_dim]
+            self.vel_hat = (self.pos_hat - self.pos) / self.dt * self.dump
+            print('dX', dX.shape, '\n', dX)
+            '''
+            # 组装时间
+            end_time = time.time()  # 结束时间
+            times_ms.append((end_time - start_time) * 1000)  # 计算并存储运行时间（毫秒）
+
+            # 计算误差
+            error_dx_norm = np.linalg.norm(dX_free)
+            
+            # 计算残差
+            residual = b_free  
+            residual_norm = np.linalg.norm(residual)
+
+            # 记录残差
+            Newton_step.append(times)
+            Error_dx_norm.append(error_dx_norm)
+            Residual_norm.append(residual_norm)
+            Energy_norm.append(Energy)
+
+            # 打印残差
+            print('Newton Method step: ', times)
+            print('times_ms = ', (end_time - start_time) * 1000)
+            print('error_dx_norm =', error_dx_norm)
+            print('residual_norm = ', residual_norm, residual_norm.dtype)
+            print('Enegy = ', Energy)
+            
+            # 如果误差足够小，提前结束迭代
+            if error_dx_norm < self.tolerance_newton:
+                break
+        
+        # 更新位置和速度
+        self.vel = (self.pos_hat - self.pos) / self.dt * self.dump
+        self.pos = self.pos_hat.copy()
+
+        # 碰撞检测和响应
+        self.Sphere_Collision(ball_c=np.array([0.5, -0.5, 6]), ball_r=2.50, u_N=0.1, u_T=0.45, method=2)
+
+        return Newton_step, times_ms, Error_dx_norm, Residual_norm, Energy_norm
         
     def assemebel_HF(self, Spring: Spring):
         '''
@@ -103,118 +212,6 @@ class Mass:
         # 返回计算结果
         self.force = F - self.dt * self.dt * (1/self.mass) * (f+g)  # 计算b向量
         self.Hessian = I - self.dt * self.dt * (1/self.mass) *H  # 计算A矩阵
-
-    def Single_Newton_Method(self, Spring: Spring, fixed_num, ite_num, space_dim=3):
-        '''
-        功能:  牛顿迭代, 一个时间步
-        input: 质点, 弹簧, 迭代步, 固定点数量
-        output: 
-            1. 直接修改mss类的位置和速度
-            2. 绘制收敛曲线的参数:
-                Newton_step, times_ms, Error_dx_norm, Residual_norm, Energy_norm
-        '''
-        # Newton Method (Implicit Euler)
-        # 计时
-        times_ms = []
-        # 残差曲线
-        Newton_step = []
-        Error_dx_norm = []
-        Residual_norm = []
-        Energy_norm = []
-
-        # 初始化
-        fixed_idx = [i for i in range(fixed_num)]
-        all_idx = np.arange(self.num)
-        free_idx = np.setdiff1d(all_idx, fixed_idx)
-        # 每个点有三个自由度
-        free_dof = np.concatenate([3*free_idx + i for i in range(3)])
-        # 稳定版本
-        fixed_points = fixed_num*space_dim
-        all_points = self.num*space_dim
-        
-        # 迭代初值
-        self.pos_hat = self.pos.copy()
-
-        # 迭代
-        for times in range(ite_num):
-            # 计时
-            start_time = time.time()
-
-            # 计算能量
-            Energy = self.Energy_compute(Spring)
-            # 组装
-            self.assemebel_HF(Spring)
-
-            # 注意：只求解自由部分
-            A_free = -self.Hessian[fixed_points:all_points, fixed_points:all_points]
-            b_free = self.force[fixed_points:all_points]
-            #A_free = -self.Hessian[np.ix_(free_dof, free_dof)]
-            #b_free = self.force[free_dof]
-        
-            # fixed_num
-            #A, b = self.boundary_solve(fixed_num, space_dim)
-            
-            # 矩阵稀疏化
-            A_sparse = csr_matrix(A_free)
-            
-            # 计算dX
-            dX_free, info = cg(A_sparse, b_free)
-            # print('cg:',info)
-            '''
-            # 更新位置（只更新非固定点）
-            for j in range(fixed_num, self.num):
-                idx = (j-fixed_num)*space_dim
-                self.pos_hat[j] += dX[idx:idx+space_dim]
-            self.vel_hat = (self.pos_hat - self.pos) / self.dt * self.dump
-            '''
-            pos_new = self.pos_hat.copy()
-            # 将 x_free 重新写回到 pos_new 对应的自由点
-            for i, p in enumerate(free_idx):
-                pos_new[p] += dX_free[3*i : 3*i+3]
-            self.pos_hat = pos_new.copy()
-            '''
-            # 更新位置（只更新非固定点）
-            for j in range(self.num):
-                self.pos_hat[j] += dX[j:j+space_dim]
-            self.vel_hat = (self.pos_hat - self.pos) / self.dt * self.dump
-            print('dX', dX.shape, '\n', dX)
-            '''
-            # 组装时间
-            end_time = time.time()  # 结束时间
-            times_ms.append((end_time - start_time) * 1000)  # 计算并存储运行时间（毫秒）
-
-            # 计算误差
-            error_dx_norm = np.linalg.norm(dX_free)
-            
-            # 计算残差
-            residual = b_free  
-            residual_norm = np.linalg.norm(residual)
-
-            # 记录残差
-            Newton_step.append(times)
-            Error_dx_norm.append(error_dx_norm)
-            Residual_norm.append(residual_norm)
-            Energy_norm.append(Energy)
-
-            # 打印残差
-            print('Newton Method step: ', times)
-            print('times_ms = ', (end_time - start_time) * 1000)
-            print('error_dx_norm =', error_dx_norm)
-            print('residual_norm = ', residual_norm, residual_norm.dtype)
-            print('Enegy = ', Energy)
-            
-            # 如果误差足够小，提前结束迭代
-            if error_dx_norm < self.tolerance_newton:
-                break
-        
-        # 更新位置和速度
-        self.vel = (self.pos_hat - self.pos) / self.dt * self.dump
-        self.pos = self.pos_hat.copy()
-
-        # 碰撞检测和响应
-        self.Sphere_Collision(ball_c=np.array([0.5, -0.5, 6]), ball_r=2.50, u_N=0.1, u_T=0.45, method=2)
-
-        return Newton_step, times_ms, Error_dx_norm, Residual_norm, Energy_norm
 
     def Sphere_Collision(self, ball_c, ball_r, u_N, u_T, method):
         '''
