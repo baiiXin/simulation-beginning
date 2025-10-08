@@ -166,10 +166,10 @@ class HessianPointValidator(HessianValidator):
 
 
         # 使用梯度函数的有限差分计算Hessian
-        force = numerical_grad(f_force, x_a, h=self.epsilon)
+        force = -numerical_grad(f_force, x_a, h=self.epsilon)
 
         # 使用梯度函数的有限差分计算Hessian
-        hessian = numerical_jacobian(f_hessian, x_a, h=self.epsilon)
+        hessian = -numerical_jacobian(f_hessian, x_a, h=self.epsilon)
         
         return force, hessian
     
@@ -186,7 +186,7 @@ class HessianPointValidator(HessianValidator):
         grad = torch.autograd.grad(energy, x_a, create_graph=True)[0]
         
         # print("自动微分计算Force:", grad)
-        force = grad
+        force = -grad
 
         # 计算Hessian
         hessian = torch.zeros((n, n), device=self.device)

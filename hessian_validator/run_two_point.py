@@ -21,7 +21,7 @@ class ContactEnergy:
 
     def analytical_force(self, x_a, x_b):
         """解析力：对于弹簧能量就是力"""
-        return -self.stiffness * (self.collision_radius - torch.dot(self.hat_normal, x_a - x_b)) * self.hat_normal
+        return self.stiffness * (self.collision_radius - torch.dot(self.hat_normal, x_a - x_b)) * self.hat_normal
     
     def analytical_hessian(self, x_a, x_b):
         """解析Hessian：对于弹簧能量就是刚度矩阵"""
@@ -63,7 +63,7 @@ class LineEnergy:
 test_point=torch.tensor([[1.0, 1.0, 1.0], [0.0, 0.0, 0.0]], device='cpu')
 
 # 使用
-energy = LineEnergy()
+energy = ContactEnergy(point=test_point)
 print('\nceshi:', energy(test_point[0], test_point[1]),'\n')
 
 # 点验证
