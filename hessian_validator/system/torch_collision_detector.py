@@ -66,14 +66,14 @@ class TorchCollisionDetector():
         self.collision_detector.vertex_triangle_collision_detection(self.contact_margin)
         self.collision_detector.edge_edge_collision_detection(self.contact_margin)
 
-        trimesh_collision_info = self.collision_detector.collision_info
+        self.collision_info = self.collision_detector.collision_info
 
-        print('\ntrimesh_collision_info:', trimesh_collision_info)
+        #print('\ntrimesh_collision_info:', self.collision_info)
 
-        vertex_colliding_triangles = wp.to_torch(trimesh_collision_info.vertex_colliding_triangles)
-        edge_colliding_edges = wp.to_torch(trimesh_collision_info.edge_colliding_edges)
+        vertex_colliding_triangles = wp.to_torch(self.collision_info.vertex_colliding_triangles)
+        edge_colliding_edges = wp.to_torch(self.collision_info.edge_colliding_edges)
 
-        print('\nvertex_colliding_triangles:', vertex_colliding_triangles, type(vertex_colliding_triangles))
-        print('\nedge_colliding_edges:', edge_colliding_edges, type(edge_colliding_edges))
+        #print('\nvertex_colliding_triangles:', vertex_colliding_triangles, type(vertex_colliding_triangles))
+        #print('\nedge_colliding_edges:', edge_colliding_edges, type(edge_colliding_edges))
 
         return vertex_colliding_triangles, edge_colliding_edges

@@ -1,4 +1,5 @@
 import torch
+import warp as wp
 
 hessian = torch.tensor([[1.0, 0.0, 0.0],
                          [0.0, 2.0, 0.0],
@@ -59,3 +60,35 @@ print("Default dtype:", torch.get_default_dtype())  # 输出: torch.float64
 vec = torch.rand((3,3,3), dtype=torch.float64)
 print(vec)
 print(vec[0])
+
+
+print('-----')
+matrix = torch.zeros((3,3,3,3), dtype=torch.float64)
+print(f"matrix = {matrix}, shape = {matrix.shape}, shape[0] = {matrix.shape[0]}")
+
+# input_mesh
+vertices = [wp.vec3(0.0, 0.0, 0.0), wp.vec3(0.0, 0.5, 0.0), wp.vec3(0.5, 0.0, 0.0),
+            wp.vec3(0.0, 0.0, 0.1), wp.vec3(0.0, 0.5, 0.1), wp.vec3(0.5, 0.0, 0.1),
+            wp.vec3(0.0, 0.0, 0.2), wp.vec3(0.0, 0.5, 0.2), wp.vec3(0.5, 0.0, 0.2)]
+
+warp_vertices = wp.array(vertices, dtype=wp.vec3, device="cpu")
+torch_vertices = wp.to_torch(warp_vertices, requires_grad=True)
+
+print(f"torch_vertices = {torch_vertices}, shape = {torch_vertices.shape}, shape[0] = {torch_vertices.shape[0]}")
+
+
+# 梯度切断
+
+x = torch.tensor([1.0,2.0,3.0], requires_grad=True)
+y = x[0]
+y_no_grad = y.detach().clone()
+
+# 对 y_no_grad 做操作
+z = y_no_grad * 2  # 不会跟踪梯度
+
+# 对原 tensor 做操作
+w = y * 3
+w.sum().backward()
+
+print()
+print(x.grad)  # tensor([3., 0., 0.]) -> 原 tensor 的梯度仍然存在

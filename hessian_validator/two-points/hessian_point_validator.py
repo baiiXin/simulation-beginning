@@ -66,9 +66,9 @@ class HessianPointValidator(HessianValidator):
             'analytical_force': analytical_results[0],
             'finite_diff_force': finite_diff_results[0],
             'auto_diff_force': auto_diff_results[0],
-            'error_analytical_vs_finite_diff': error_analytical_fd,
-            'error_analytical_vs_auto_diff': error_analytical_ad,
-            'error_finite_diff_vs_auto_diff': error_fd_ad,
+            'error_analytical_vs_finite_diff': {error_analytical_fd, error_analytical_fd==0}, 
+            'error_analytical_vs_auto_diff': {error_analytical_ad, error_analytical_ad==0},
+            'error_finite_diff_vs_auto_diff': {error_fd_ad, error_fd_ad==0},
             'tolerance': tolerance,
             'test_point': test_point.cpu().detach().numpy()
         }

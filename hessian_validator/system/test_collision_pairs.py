@@ -3,6 +3,10 @@ import numpy as np
 import torch
 from torch.func import hessian
 
+torch.set_default_dtype(torch.float64)
+# 设置打印精度为 10 位小数
+torch.set_printoptions(precision=30)
+
 print()
 wp.init()
 print()
@@ -148,6 +152,7 @@ def triangle_closest_point(a: torch.Tensor, b: torch.Tensor, c: torch.Tensor, p:
 # -----------------------------
 def compute_edge_hessian(
     vertices: torch.Tensor, 
+    vertices_no_grad: torch.Tensor,
     edges_indices: torch.Tensor,
     edge_collision_pairs: torch.Tensor,
     edge_edge_parallel_epsilon=1e-6,
@@ -156,14 +161,18 @@ def compute_edge_hessian(
 ):
     """
     vertices: (V,3)
-    edges_indices: (E,4)  # (v1_idx, v2_idx, ...)
+    edges_indices: (E,4)  # (v1_idx, v2_idx, v1_idx, v2_idx)
     edge_collision_pairs: (N,2) list of edge indices that collide
-    returns: edge_hessians: (E, 3, 3)
+    returns: edge_energy: scalar tensor
+             edge_force: (V,3)
+             edge_hessian: (V,V,3,3)
     """
-    N = vertices.shape[0]
-    edge_hessian = torch.zeros((N, N, 3, 3), dtype=vertices.dtype, device=vertices.device)
-    edge_force = torch.zeros((N, 3), dtype=vertices.dtype, device=vertices.device)
+    N = vertices_no_grad.shape[0]
+    edge_hessian = torch.zeros((N, N, 3, 3), dtype=vertices_no_grad.dtype, device=vertices_no_grad.device)
+    edge_force = torch.zeros((N, 3), dtype=vertices_no_grad.dtype, device=vertices_no_grad.device)
     edge_energy = torch.tensor(0)
+
+    print('\ninput', collision_radius, collision_stiffness)
 
     for tid in range(edge_collision_pairs.shape[0]//2):
         e1_idx = edge_collision_pairs[2*tid]
@@ -179,23 +188,40 @@ def compute_edge_hessian(
         e1_v2_pos = vertices[e1_v2]
         e2_v1_pos = vertices[e2_v1]
         e2_v2_pos = vertices[e2_v2]
-
-        st = closest_point_edge_edge(e1_v1_pos, e1_v2_pos, e2_v1_pos, e2_v2_pos, edge_edge_parallel_epsilon)
+        e1_v1_pos_no_grad = vertices_no_grad[e1_v1]
+        e1_v2_pos_no_grad = vertices_no_grad[e1_v2]
+        e2_v1_pos_no_grad = vertices_no_grad[e2_v1]
+        e2_v2_pos_no_grad = vertices_no_grad[e2_v2]
+        
+        st = closest_point_edge_edge(e1_v1_pos_no_grad, e1_v2_pos_no_grad, e2_v1_pos_no_grad, e2_v2_pos_no_grad, edge_edge_parallel_epsilon)
         s, t, dis = st[0], st[1], st[2]
+
+        print('\ne1_idx, e2_idx:', e1_idx, e2_idx)
+        print('\ndis(e1, e2)', dis, collision_radius)
 
         if dis >= collision_radius:
             continue
+
+        print('\ne1_idx, e2_idx:', e1_idx, e2_idx)
+        print('\ndis(e1, e2)', dis, collision_radius)
+        print('---\n')
+
+        e1_vec_no_grad = e1_v2_pos_no_grad - e1_v1_pos_no_grad
+        e2_vec_no_grad = e2_v2_pos_no_grad - e2_v1_pos_no_grad
+        c1_no_grad = e1_v1_pos_no_grad + e1_vec_no_grad * s
+        c2_no_grad = e2_v1_pos_no_grad + e2_vec_no_grad * t
+        diff_no_grad = c1_no_grad - c2_no_grad
+        collision_normal = diff_no_grad / dis
 
         e1_vec = e1_v2_pos - e1_v1_pos
         e2_vec = e2_v2_pos - e2_v1_pos
         c1 = e1_v1_pos + e1_vec * s
         c2 = e2_v1_pos + e2_vec * t
         diff = c1 - c2
-        collision_normal = diff / dis
 
-        energy = 0.5 * collision_stiffness * (collision_radius - dis) **2
+        energy = 0.5 * collision_stiffness * (collision_radius - torch.dot(diff, collision_normal)) **2
 
-        force = -collision_stiffness * (collision_radius - dis) * collision_normal 
+        force = collision_stiffness * (collision_radius - torch.dot(diff, collision_normal)) * collision_normal 
 
         hessian = collision_stiffness * torch.outer(collision_normal, collision_normal)
 
@@ -239,6 +265,7 @@ def compute_edge_hessian(
 # -----------------------------
 def compute_point_triangle_hessian(
     vertices: torch.Tensor,
+    vertices_no_grad: torch.Tensor,
     tri_indices: torch.Tensor,
     pt_collision_pairs: torch.Tensor,
     collision_radius = 0.2,
@@ -252,10 +279,12 @@ def compute_point_triangle_hessian(
              pt_force: (V,3)
              pt_hessian: (V,V,3,3)
     """
-    N = vertices.shape[0]
-    pt_hessian = torch.zeros((N, N, 3, 3), dtype=vertices.dtype, device=vertices.device)
-    pt_force = torch.zeros((N, 3), dtype=vertices.dtype, device=vertices.device)
+    N = vertices_no_grad.shape[0]
+    pt_hessian = torch.zeros((N, N, 3, 3), dtype=vertices_no_grad.dtype, device=vertices_no_grad.device)
+    pt_force = torch.zeros((N, 3), dtype=vertices_no_grad.dtype, device=vertices_no_grad.device)
     pt_energy = torch.tensor(0)
+
+    print('\ninput', collision_radius, collision_stiffness)
 
     for tid in range(pt_collision_pairs.shape[0]//2):
         p_idx = pt_collision_pairs[2*tid]
@@ -265,18 +294,22 @@ def compute_point_triangle_hessian(
 
         v0_idx, v1_idx, v2_idx = tri_indices[t_idx]
         v0, v1, v2, p = vertices[v0_idx], vertices[v1_idx], vertices[v2_idx], vertices[p_idx]
+        v0_no_grad, v1_no_grad, v2_no_grad, p_no_grad = vertices_no_grad[v0_idx], vertices_no_grad[v1_idx], vertices_no_grad[v2_idx], vertices_no_grad[p_idx]
 
         # 使用你的 triangle_closest_point 函数
-        closest, bary, _ = triangle_closest_point(v0, v1, v2, p)
-        u, v, w = bary
-        diff = closest - p
-        dis = torch.norm(diff) 
-        collision_normal = diff / dis
+        closest_no_grad, bary_no_grad, _ = triangle_closest_point(v0_no_grad, v1_no_grad, v2_no_grad, p_no_grad)
+        u, v, w = bary_no_grad
+        diff_no_grad = closest_no_grad - p_no_grad
+        dis = torch.norm(diff_no_grad) 
+        collision_normal = diff_no_grad / dis
         if dis >= collision_radius:
             continue
+        
+        closest = u * v0 + v * v1 + w * v2
+        diff = closest - p
 
-        energy = 0.5 * collision_stiffness * (collision_radius - dis)**2
-        force = -collision_stiffness * (collision_radius - dis) * collision_normal
+        energy = 0.5 * collision_stiffness * (collision_radius - torch.dot(diff, collision_normal))**2
+        force = collision_stiffness * (collision_radius - torch.dot(diff, collision_normal)) * collision_normal
         hessian = collision_stiffness * torch.outer(collision_normal, collision_normal)
 
         # 能量
@@ -316,13 +349,147 @@ def compute_point_triangle_hessian(
     return pt_energy, pt_force, pt_hessian
 
 
+# -----------------------------
+# all hessian kernel (PyTorch)
+# -----------------------------
+def compute_full_hessian(
+    vertices: torch.Tensor, 
+    vertices_no_grad: torch.Tensor,
+    edge_indices, edge_colliding_edges, 
+    tri_indices, vertex_colliding_triangles, 
+    edge_edge_parallel_epsilon=1e-6,
+    contact_radius = 0.2,
+    contact_stiffness = 1000.0
+):
+    print('\ninput', contact_radius, contact_stiffness)
+
+    edge_energy, edge_force, edge_hessian = compute_edge_hessian(
+        vertices, vertices_no_grad, edge_indices, edge_colliding_edges, edge_edge_parallel_epsilon, contact_radius, contact_stiffness)
+    pt_energy, pt_force, pt_hessian = compute_point_triangle_hessian(
+        vertices, vertices_no_grad, tri_indices, vertex_colliding_triangles, contact_radius, contact_stiffness)
+    return edge_energy + pt_energy, 2*edge_force + pt_force, 2*edge_hessian + pt_hessian
+
+
+# =============================
+# Finite difference (PyTorch)
+# -----------------------------
+def compute_finite_difference_results(
+    vertices: torch.Tensor, 
+    vertices_no_grad: torch.Tensor,
+    edge_indices, edge_colliding_edges, 
+    tri_indices, vertex_colliding_triangles, 
+    contact_radius, contact_stiffness
+):
+        """
+        中心差分计算Hessian - PyTorch版本
+        """
+        N = vertices_no_grad.shape[0]
+        h = 1e-2
+        
+        force_fd = torch.zeros_like(vertices_no_grad)
+        for idx in range(N):
+            for space_dx in range(3):
+                perturb = torch.zeros_like(vertices_no_grad)
+                perturb[idx,space_dx] = h
+
+                f_plus, _, _ = compute_full_hessian(
+                    vertices + perturb,
+                    vertices_no_grad + perturb,
+                    edge_indices, edge_colliding_edges, 
+                    tri_indices, vertex_colliding_triangles, 
+                    contact_radius, contact_stiffness)
+                f_minus, _, _ = compute_full_hessian(
+                    vertices - perturb, 
+                    vertices_no_grad - perturb,
+                    edge_indices, edge_colliding_edges, 
+                    tri_indices, vertex_colliding_triangles, 
+                    contact_radius, contact_stiffness)
+
+                # print(f'f_plus = {f_plus}, f_minus = {f_minus}')
+
+                force_fd[idx,space_dx] = (f_plus - f_minus) / (2 * h)
+        
+        hessian_fd = torch.zeros((N, N, 3, 3), dtype=vertices_no_grad.dtype, device=vertices_no_grad.device)
+        
+        for idx in range(N):
+            for jdx in range(N):
+                for space_idx in range(3):
+                    for space_jdx in range(3):
+                        perturb = torch.zeros_like(vertices_no_grad)
+                        perturb[jdx,space_jdx] = h
+                        
+                        _, f_plus, _ = compute_full_hessian(
+                            vertices + perturb, 
+                            vertices_no_grad + perturb,
+                            edge_indices, edge_colliding_edges, 
+                            tri_indices, vertex_colliding_triangles, 
+                            contact_radius, contact_stiffness)
+                        _, f_minus, _ = compute_full_hessian(
+                            vertices - perturb, 
+                            vertices_no_grad - perturb,
+                            edge_indices, edge_colliding_edges, 
+                            tri_indices, vertex_colliding_triangles, 
+                            contact_radius, contact_stiffness)
+
+                        # print('\n---3---\n')
+                        
+                        hessian_fd[idx,jdx,:,space_jdx] = ((f_plus[idx] - f_minus[idx]) / (2 * h))
+        
+        return -force_fd, -hessian_fd
+
+
+# =============================
+# Auto difference (PyTorch)
+# -----------------------------
+def compute_automatic_diff_results(
+    vertices: torch.Tensor, 
+    vertices_no_grad: torch.Tensor,
+    edge_indices, edge_colliding_edges, 
+    tri_indices, vertex_colliding_triangles, 
+    contact_radius, contact_stiffness
+):
+        """
+        使用PyTorch自动微分计算Hessian
+        """
+        # 确保point需要梯度
+        vertices.requires_grad_(True)
+        
+        # 计算能量
+        energy, _, _ = compute_full_hessian(
+            vertices, vertices_no_grad,
+            edge_indices, edge_colliding_edges, 
+            tri_indices, vertex_colliding_triangles, 
+            contact_radius, contact_stiffness)
+
+        # 计算力（保持梯度图）
+        force = torch.autograd.grad(
+            energy, vertices, create_graph=True, retain_graph=True
+        )[0]
+
+        # 初始化 Hessian
+        N = vertices.shape[0]
+        hessian_auto = torch.zeros((N, N, 3, 3), device=vertices.device)
+
+        # 逐分量求二阶导数
+        for i in range(N):
+            for a in range(3):
+                # force[i, a] 仍在计算图中，因此可以再次求导
+                grad2 = torch.autograd.grad(
+                    force[i, a], vertices, retain_graph=True, create_graph=False
+                )[0]
+                hessian_auto[i, :, :, a] = grad2
+
+        return -force, hessian_auto
+
+
+
+
 if __name__ == "__main__":
     # input_mesh
     vertices = [wp.vec3(0.0, 0.0, 0.0), wp.vec3(0.0, 0.5, 0.0), wp.vec3(0.5, 0.0, 0.0),
-                wp.vec3(0.0, 0.0, 0.1), wp.vec3(0.0, 0.5, 0.1), wp.vec3(0.5, 0.0, 0.1),
-                wp.vec3(0.0, 0.0, 0.2), wp.vec3(0.0, 0.5, 0.2), wp.vec3(0.5, 0.0, 0.2)]
+                wp.vec3(0.0, 0.0, 0.25), wp.vec3(0.0, 0.5, 0.25), wp.vec3(0.5, 0.0, 0.25)]
 
-    mesh_indices = [0,1,2,3,4,5,6,7,8]
+    mesh_indices = [0,1,2,3,4,5]
 
     contact_radius = 0.2
     contact_margin = 0.3
@@ -332,7 +499,7 @@ if __name__ == "__main__":
     collision_detector = TorchCollisionDetector(vertices, mesh_indices, contact_radius, contact_margin)
 
     warp_vertices = wp.array(vertices, dtype=wp.vec3, device="cpu")
-    torch_vertices = wp.to_torch(warp_vertices, requires_grad=True)
+    torch_vertices = wp.to_torch(warp_vertices)
 
     tri_indices, edge_indices = collision_detector()
     print('\nvertices:', torch_vertices)
@@ -341,31 +508,12 @@ if __name__ == "__main__":
 
     # detect
     vertex_colliding_triangles, edge_colliding_edges = collision_detector.detect(warp_vertices)
+    print('\nmodel.vertex_colliding_triangles:', vertex_colliding_triangles)
+    print('\nmodel.edge_colliding_edges:', edge_colliding_edges)
     
-    # computation
-    edge_energy, edge_force, edge_hessian = compute_edge_hessian(
-        torch_vertices, edge_indices, edge_colliding_edges, contact_radius, contact_stiffness)
-
-    pt_energy, pt_force, pt_hessian = compute_point_triangle_hessian(
-        torch_vertices, tri_indices, vertex_colliding_triangles, contact_radius, contact_stiffness)
-
-    energy = edge_energy + pt_energy
-    force = edge_force + pt_force
-    Hessian = edge_hessian + pt_hessian
-
-    print('/nenergy:', energy)
-    print('/nforce:', force)
-    print('/nHessian:', Hessian)
-
-    def compute_energy(x):
-        torch_vertices = x
-        edge_energy, _, _ = compute_edge_hessian(
-            torch_vertices, edge_indices, edge_colliding_edges, contact_radius, contact_stiffness)
-        pt_energy, _, _ = compute_point_triangle_hessian(
-            torch_vertices, tri_indices, vertex_colliding_triangles, contact_radius, contact_stiffness)
-        return edge_energy + pt_energy
-
-    H = hessian(compute_energy)(torch_vertices)
-
-    print('/nhessian:', H)
-    print('/nHessian vs aoto Hessian:', torch.norm(Hessian-H, p=float('inf')))
+    energy, force, Hessian = compute_full_hessian(
+        torch_vertices, torch_vertices, 
+        edge_indices, edge_colliding_edges, 
+        tri_indices, vertex_colliding_triangles, 
+        1e-6,
+        contact_radius, contact_stiffness)
