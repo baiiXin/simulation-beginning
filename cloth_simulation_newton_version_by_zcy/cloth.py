@@ -103,7 +103,6 @@ class Mass:
         free_idx = np.array(self.free_idx)
         dof_matrix = 3 * free_idx[:, np.newaxis] + np.arange(3)
         self.free_dof = dof_matrix.flatten()
-        # print('self.free_dof', self.free_dof)
 
         # 初始值
         self.pos_prev = self.pos_cur.copy()
@@ -131,22 +130,14 @@ class Mass:
         self.builder.color(include_bending=True)
         self.model = self.builder.finalize()
 
-        self.state_0 = self.model.state()
-        self.state_1 = self.model.state()
-        self.control = self.model.control()
-        self.contacts = self.model.collide(self.state_0)
-
         self.vbd_integrator = zcy_SolverVBD(model=self.model, iterations=self.iterations, handle_self_contact=True)
 
         # transform
-        #self.pos_warp = wp.array(self.pos_warp, dtype=wp.vec3)
-        #self.pos_prev_warp = wp.array(self.pos_prev, dtype=wp.vec3)
+        self.pos_warp = wp.array(self.pos_warp, dtype=wp.vec3)
+        self.pos_prev_warp = wp.array(self.pos_prev, dtype=wp.vec3)
         self.vel_warp = wp.array(self.vel_cur, dtype=wp.vec3)
         self.vel_prev_warp = wp.array(self.vel_prev, dtype=wp.vec3)
-        self.pos_warp = self.state_1.particle_q
-        self.pos_prev_warp = self.state_0.particle_q
         
-
         # 检查
         print('model.tri_indices', self.model.tri_indices.shape)
         print('model.edge_indices', self.model.edge_indices.shape)
@@ -169,40 +160,20 @@ class Mass:
             2. 绘制收敛曲线的参数:
                 Newton_step, times_ms, Error_dx_norm, Residual_norm, Energy_norm
         '''
-        '''
         print('\n---bounds and forward step---')
-        self.contacts = self.model.collide(self.state_0)
-
-        # must include this after you update the mesh position, otherwise the collision detection results are not precise
-        self.vbd_integrator.trimesh_collision_detector.refit(self.pos_prev_warp)
-        self.vbd_integrator.trimesh_collision_detector.triangle_triangle_intersection_detection()
-
-        # ===== 打印三角形相交检测结果 =====
-        print("===== Triangle-Triangle Intersection Results =====")
-        # 2. 每个三角形的相交数量
-        counts = self.vbd_integrator.trimesh_collision_detector.triangle_intersecting_triangles_count.numpy()
-        # 额外：总相交数量
-        print("Total intersections:", counts.sum())
-
-        #print('max(pos_cur-pos_prev):', np.max(self.pos_cur-self.pos_prev), np.max(self.pos_prev-self.pos_cur))
-        # compute bounds and forward
-        # self.compute_bounds()
-        #print('pos_warp', id(self.pos_warp))
-        #print('pos_prev_warp', id(self.pos_prev_warp))
+        # collision detection, compute bounds and give a initial value with truncation
         self.vbd_integrator.zcy_forward_step_penetration_free(self.pos_warp, self.pos_prev_warp, self.vel_warp, self.dt)
         pos_cur = self.pos_warp.numpy()
         vel_cur = self.vel_warp.numpy()
-        # self.truncate_displacement(self.bounds, self.pos_cur, self.pos_cur-self.pos_prev)
 
         # free point update
         for i, p in enumerate(self.free_idx):
                 self.pos_cur[p] = pos_cur[p]
                 self.vel_cur[p] = vel_cur[p]
         
-        #print('max(pos_cur-pos_prev)0:', np.max(pos_cur-self.pos_prev), np.max(self.pos_prev-pos_cur))
-        #print('max(pos_cur-pos_prev)1:', np.max(self.pos_cur-self.pos_prev), np.max(self.pos_prev-self.pos_cur))
+        # collision detect again, update the bounds and contact sets
         self.vbd_integrator.zcy_collision_detection_penetration_free(self.pos_warp)
-        '''
+        
         # Newton Method (Implicit Euler)
         # 计时
         times_ms = []
@@ -212,19 +183,16 @@ class Mass:
         Residual_norm = []
         Energy_norm = []
 
-        # 迭代初值
-        # self.pos_hat = self.pos.copy()
-
         print('\n---iteration---')
         # 迭代
         for times in range(ite_num):
             print('---iteration step start---')
             # 计时
             start_time = time.time()
-            print('---flag---')
+            print('---flag1---')
             # 计算能量
             Energy = self.Energy_compute(Spring)
-            
+            print('---flag2---')
             # 组装
             self.assemebel_HF(Spring)
             
@@ -248,14 +216,14 @@ class Mass:
                 pos_new[p] += dX[3*i : 3*i+3]
             self.pos_cur = pos_new.copy()
             self.pos_warp = wp.array(self.pos_cur, dtype=wp.vec3)
-            '''
+            
             # 截断
             # self.truncate_displacement(self.bounds, self.pos_cur, self.pos_cur-self.pos_prev)
             # print('self.pos_warp', id(self.pos_warp))
             self.vbd_integrator.zcy_truncation_by_conservative_bound(self.pos_warp)
             self.pos_cur = self.pos_warp.numpy()
             # print('self.pos_warp', id(self.pos_warp))
-            '''
+            
             # 组装时间
             end_time = time.time()  # 结束时间
             times_ms.append((end_time - start_time) * 1000)  # 计算并存储运行时间（毫秒）
@@ -279,11 +247,6 @@ class Mass:
             print('error_dx_norm =', error_dx_norm)
             print('residual_norm = ', residual_norm, residual_norm.dtype)
             print('Enegy = ', Energy)
-            '''
-            with open("debug.log", "a") as f:
-                f.write("checkpoint\n")
-                f.flush()
-            '''
 
             print('---iteration step end---\n')
             # 如果误差足够小，提前结束迭代
@@ -310,23 +273,16 @@ class Mass:
         output: 直接修改 self.Hessian 和 self.force; 
                 不是实际的force和hessian; 对应牛顿迭代的A和b
         '''
-        '''
+        
         # self_collision_force_and_hessian
-        self.vbd_integrator.zcy_compute_hessian_force(self.pos_warp, self.pos_prev_warp, self.dt, self.state_0, self.state_1, self.control, self.contacts)
+        self.vbd_integrator.zcy_compute_hessian_force(self.pos_warp, self.pos_prev_warp, self.dt)
         self.particle_forces, self.particle_hessians = self.vbd_integrator.particle_forces.numpy(), self.vbd_integrator.particle_hessians.numpy()
         
         # 测试 
         print('self.particle_forces', self.particle_forces.shape, type(self.particle_forces))
-        #print('self.particle_hessians', self.particle_hessians.shape, type(self.particle_hessians))
-        #print(self.particle_forces[0])
-        #print(self.particle_hessians[0])
-        #print(np.isnan(self.particle_forces).all())
-        #print(np.isnan(self.particle_hessians).all())
         print('max(self.particle_forces):', np.max(np.abs(self.particle_forces)))
         print('max(self.particle_hessians):', np.max(np.abs(self.particle_hessians)))
-        #print(np.argwhere(np.isnan(self.particle_forces)))
-        #print(np.argwhere(np.isnan(self.particle_hessians)))
-        '''
+        
         # 获取质点数量和空间维度
         Nm = self.num  # 质点数量
         space_dim = 3  # 空间维度，应该是3
@@ -374,9 +330,9 @@ class Mass:
             g[(j*space_dim):(j*space_dim+space_dim)] = g_vec
 
             # 接触力
-            #f[(j*space_dim):(j*space_dim+space_dim)] += self.particle_forces[j]
-            #for i in range(Nm):
-            #    H[(j*space_dim):(j*space_dim+space_dim), (i*space_dim):(i*space_dim+space_dim)] += self.particle_hessians[j*Nm+i]
+            f[(j*space_dim):(j*space_dim+space_dim)] += self.particle_forces[j]
+            for i in range(Nm):
+                H[(j*space_dim):(j*space_dim+space_dim), (i*space_dim):(i*space_dim+space_dim)] -= self.particle_hessians[j*Nm+i]
             
             # 质量/单位矩阵
             I_eyes = np.eye(space_dim)
@@ -432,44 +388,14 @@ class Mass:
 
 
 '''
-    def compute_bounds(self):
-
-        self.collision_detector.refit(self.pos_warp)
-        self.collision_detector.vertex_triangle_collision_detection(0.3)
-        self.collision_detector.edge_edge_collision_detection(0.3)
-        self.vbd_integrator.pos_prev_collision_detection.assign(self.pos_warp)
-
-        wp.launch(
-            kernel=iterate_vertex_neighbor_primitives,
-            inputs=[
-                self.vbd_integrator.adjacency, 
-                self.collision_detector.vertex_colliding_triangles_min_dist, 
-                self.collision_detector.edge_colliding_edges_min_dist, 
-                self.collision_detector.triangle_colliding_vertices_min_dist, 
-                self.gama_p],
-            outputs=[
-                self.bounds],
-            dim=self.model.particle_count,
-            device=self.device
-        )
-
-    def truncate_displacement(self, bounds, vertices, displacement):
-
-        # 将vertices列表转换为warp数组
-        vertices_array = wp.array(vertices, dtype=wp.vec3, device=self.device)
-        # 将displacement_init列表转换为warp数组
-        displacement_array = wp.array(displacement, dtype=wp.vec3, device=self.device)
-
-        # replace this with actual truncation
-        new_pos = wp.array(shape=len(displacement), dtype=wp.vec3, device=self.device)
-
-        wp.launch(
-            truncate_displacement,
-            dim=self.num,
-            inputs=[vertices_array, displacement_array, new_pos, bounds],
-            device=self.device
-        )
-
-        self.pos_cur = new_pos.numpy()
+        # ===== 打印三角形相交检测结果 =====
+        # must include this after you update the mesh position, otherwise the collision detection results are not precise
+        self.vbd_integrator.trimesh_collision_detector.refit(self.pos_prev_warp)
+        self.vbd_integrator.trimesh_collision_detector.triangle_triangle_intersection_detection()
+        print("===== Triangle-Triangle Intersection Results =====")
+        # 2. 每个三角形的相交数量
+        counts = self.vbd_integrator.trimesh_collision_detector.triangle_intersecting_triangles_count.numpy()
+        # 额外：总相交数量
+        print("Total intersections:", counts.sum())
+        # ===== 打印三角形相交检测结果 =====
 '''
-
