@@ -41,8 +41,8 @@ gravity = 9.8
 # simulation
 # 初始参数
 dt = 0.015
-N = 30
-ite_num = 10
+N = 300
+ite_num = 4
 tolerance_newton = 1e-6
 
 # 球体参数

@@ -4,6 +4,8 @@ from scipy.sparse.linalg import spsolve
 from scipy.sparse.linalg import cg, bicgstab
 import time
 
+from torch_contact_computation.torch_contact_computation import TorchContactComputation
+
 # 直接法
 #x = spsolve(A_sparse, b)
 # 共轭梯度法（适合对称正定矩阵）
@@ -50,6 +52,24 @@ class Mass:
         dof_matrix = 3 * free_idx[:, np.newaxis] + np.arange(3)
         self.free_dof = dof_matrix.flatten()
 
+        # contact computation
+        contact_radius = 0.2
+        contact_margin = 0.3
+        contact_stiffness = 1000.0
+
+        # contact computation
+        self.contact_computation = TorchContactComputation(
+            self.pos, 
+            self.ele, 
+            contact_radius, 
+            contact_margin, 
+            contact_stiffness,
+            device="cpu")
+        # collision detection
+        self.contact_computation.collision_detect(self.pos)
+        # computation
+        energy, force, Hessian = self.contact_computation.compute_contact_energy_force_Hessian(self.pos)
+
     def Single_Newton_Method(self, Spring: Spring, fixed_num, ite_num, space_dim=3):
         '''
         功能:  牛顿迭代, 一个时间步
@@ -70,6 +90,9 @@ class Mass:
         
         # 迭代初值
         self.pos_hat = self.pos.copy()
+
+        # collision detection
+        self.contact_computation.collision_detect(self.pos_hat)
 
         # 迭代
         for times in range(ite_num):
@@ -139,6 +162,10 @@ class Mass:
         output: 直接修改 self.Hessian 和 self.force; 
                 不是实际的force和hessian; 对应牛顿迭代的A和b
         '''
+        _, contact_force, contact_Hessian = self.contact_computation.compute_contact_energy_force_Hessian(self.pos_hat)
+        print('\ncontact_force:', contact_force[0].shape)
+        print('\ncontact_Hessian:', contact_Hessian[0,0].shape)
+
         # 获取质点数量和空间维度
         Nm = self.num  # 质点数量
         space_dim = 3  # 空间维度，应该是3
@@ -150,9 +177,11 @@ class Mass:
         
         I = np.zeros((all_points, all_points))  # 质量矩阵
         H = np.zeros((all_points, all_points))  # 海森矩阵
+        contact_H = np.zeros((all_points, all_points))  # 接触海森矩阵
         
         f = np.zeros(all_points)  # 弹簧力
         g = np.zeros(all_points)  # 重力
+        contact_f = np.zeros(all_points)  # 接触力
         
         # 循环计算弹簧力和海森矩阵
         for i in range(NS): 
@@ -185,6 +214,12 @@ class Mass:
             g_vec[space_dim-1] = -self.mass * self.gravity  # 在z方向上施加重力
             g[(j*space_dim):(j*space_dim+space_dim)] = g_vec
             
+            # 计算接触力
+            contact_f[(j*space_dim):(j*space_dim+space_dim)] = contact_force[j]
+            # 接触海森矩阵
+            for k in range(Nm):
+                contact_H[(j*space_dim):(j*space_dim+space_dim), (k*space_dim):(k*space_dim+space_dim)] = contact_Hessian[j,k]
+            
             # 质量/单位矩阵
             I_eyes = np.eye(space_dim)
             I[(j*space_dim):(j*space_dim+space_dim), (j*space_dim):(j*space_dim+space_dim)] = I_eyes
@@ -193,15 +228,18 @@ class Mass:
             F[(j*space_dim):(j*space_dim+space_dim)] = self.pos_hat[j] - self.pos[j] - self.dt * self.vel[j]
         
         # 返回计算结果
-        self.force = -1/self.dt/self.dt *self.mass * F + f + g  # 计算b向量
-        self.Hessian = 1/self.dt/self.dt *self.mass * I + H  # 计算A矩阵
+        self.force = -1/self.dt/self.dt *self.mass * F + f + g + contact_f  # 计算b向量
+        self.Hessian = 1/self.dt/self.dt *self.mass * I + H + contact_H  # 计算A矩阵
 
     def Energy_compute(self, Spring: Spring):   
         '''
         功能:  计算能量
         input: 质点, 弹簧
         output: Energy
-        '''          
+        '''       
+        # contact energy
+        Energy_contact, _, _ = self.contact_computation.compute_contact_energy_force_Hessian(self.pos_hat)
+
         # 获取质点数量和空间维度
         Nm = self.num  # 质点数量
         space_dim = 3  # 空间维度，应该是3
@@ -234,7 +272,7 @@ class Mass:
             # 计算弹簧力
             Energy_E += 0.5 * Spring.stiff_k * (x_ab_norm - Spring.rest_len[i]) * (x_ab_norm - Spring.rest_len[i])
         # 计算能量
-        Energy = Energy_E + Energy_F + Energy_G
+        Energy = Energy_E + Energy_F + Energy_G + Energy_contact
         return Energy
 
     def Residual_compute(self, Spring: Spring):   
@@ -243,6 +281,9 @@ class Mass:
         output: 直接修改 self.Hessian 和 self.force; 
                 不是实际的force和hessian; 对应牛顿迭代的A和b
         '''
+        # contact energy
+        _, contact_force, _ = self.contact_computation.compute_contact_energy_force_Hessian(self.pos_hat)
+
         # 获取质点数量和空间维度
         Nm = self.num  # 质点数量
         space_dim = 3  # 空间维度，应该是3
@@ -256,6 +297,7 @@ class Mass:
         
         f = np.zeros(all_points)  # 弹簧力
         g = np.zeros(all_points)  # 重力
+        contact_f = np.zeros(all_points)  # 接触力
         
         # 循环计算弹簧力和海森矩阵
         for i in range(NS): 
@@ -276,6 +318,8 @@ class Mass:
             g_vec = np.zeros(space_dim)
             g_vec[space_dim-1] = -self.mass * self.gravity  # 在z方向上施加重力
             g[(j*space_dim):(j*space_dim+space_dim)] = g_vec
+            # 接触力
+            contact_f[(j*space_dim):(j*space_dim+space_dim)] = contact_force[j]
             
             # 质量/单位矩阵
             I_eyes = np.eye(space_dim)
@@ -285,6 +329,6 @@ class Mass:
             F[(j*space_dim):(j*space_dim+space_dim)] = self.pos_hat[j] - self.pos[j] - self.dt * self.vel[j]
         
         # 返回计算结果
-        residual = F - self.dt * self.dt * (1/self.mass) * (f+g)  # 计算b向量
+        residual = F - self.dt * self.dt * (1/self.mass) * (f+g+contact_f)  # 计算b向量
         residual_norm = np.linalg.norm(residual[self.free_dof])
         return residual_norm
