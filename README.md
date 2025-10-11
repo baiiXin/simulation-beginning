@@ -1,51 +1,45 @@
 ### 环境
 
-conda env create -f simulation25.yml --prefix D:\\data\envs\simulation25
-
-
-
 [Installation — Newton Physics](https://newton-physics.github.io/newton/guide/installation.html)
 
 ```
-git clone git@github.com:newton-physics/newton.git
-cd newton
+cd project
+git clone https://github.com/baiiXin/simulation-beginning.git
 
-python -m pip install mujoco --pre -f https://py.mujoco.org/
-python -m pip install warp-lang --pre -U -f https://pypi.nvidia.com/warp-lang/
-python -m pip install git+https://github.com/google-deepmind/mujoco_warp.git@main
-python -m pip install -e .[dev]
+cd newton
+git clone https://github.com/baiiXin/newton.git
+
+# install uv (windows)
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+
+# using uv install environment
+uv run -m newton.examples basic_pendulum --viewer null
+uv run --extra examples -m newton.examples robot_humanoid --num-envs 16
+uv run --extra examples --extra torch-cu12 -m newton.examples robot_anymal_c_walk
+uv run -m newton.examples
 ```
+
 
 
 ### 部分文件结构
 
+cloth_simulation_by_zcy_first：The simplest model using only NumPy. 
+
+cloth_simulation_by_zcy_new：Add self-collision using Torch, Warp, and Newton. 
+
+
+
 | 文件夹/文件结构                             | 说明                                       |
 | :------------------------------------------ | :----------------------------------------- |
-| **cloth_nv_warp（文件夹）**（待完成！！！）         | NVIDIA Warp Documentation 布料模拟示例程序 |
-| - cloth_simulation.mp4                      | 运行’ read_usd.py‘ 的输出                  |
-| - example_cloth.usd                         | 运行’ nv_warp_sim_cloth.py‘ 的输出         |
-| - nv_warp_sim_cloth.py                      | **示例程序 -- 输出为USD文件**              |
-| - read_usd.py                               | 读取USD文件（ai）                          |
-|  |  |
-| **cloth_simulation_by_zcy_first（文件夹）** |                                            |
+| **cloth_simulation_by_zcy_first/** |                                            |
 | - cloth.py                                  | 布料类，弹簧类，布料类仿真方法       |
 | - generate_fun.py                           | 生成布料/三角网格，弹簧            |
-| - matplotlib_concurve_energy.py             | 绘制 energy **(还有问题)** （可直接运行！） |
-| - matplotlib_concurve.py                    | 绘制 residual **(可能还有问题)** （可直接运行！） |
-| - matplotlib_sim.py                         | 仿真动画生成（可直接运行！）   |
-| - sim.py                                    | 仿真计算，结果储存                  |
-|  |  |
-| **ppt（文件夹）**                          |          |
-| - 001-implicit_integration.png        | README插图，运动公式推导      |
-| - 002-implicit_integration.png        |                        |
-| - 003-newton_method.png               |                          |
-| - 004-spring.png                      |                        |
-| - 005-collision_impulse.png           |                        |
-| - 006-collision_impulse.png           |                        |
-| - GAMES-103-04_rigid_contact.pptx     | 刚体模拟ppt，含碰撞处理       |
-| - GAMES-103-05_cloth.pptx             | 布料模拟ppt              |
-| - GAMES-103-07_collision.pptx         | 碰撞处理ppt，自相交        |
-| - homework_cloth.pdf                  | 布料模拟作业    |
+| - sim.py                           | 仿真计算，结果储存             |
+| run/                               | 可运行程序                     |
+|                          |    |
+| **cloth_simulation_by_zcy_new/**   |                                |
+| torch_contact_computation/         | 碰撞相关计算                   |
+|                                    |                                |
 |  |  |
 | **README.md**                         |                                            |
 
