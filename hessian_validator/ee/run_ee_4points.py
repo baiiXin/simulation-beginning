@@ -1,5 +1,6 @@
 import torch
 from hessian_ee_validator import HessianEEValidator
+from torchviz import make_dot
 
 torch.set_default_dtype(torch.float64)
 # 设置打印精度为 10 位小数
@@ -87,3 +88,9 @@ norm_fd = torch.max(torch.abs(error_fd))
 print('\nnorm_fd:', norm_fd, '\n')
 
 print('\nresult:', type(result))
+
+
+energy_value = energy(test_point)
+params = {'x_a': test_point[0], 'x_b': test_point[1], 'x_c': test_point[2], 'x_d': test_point[3]}
+dot = make_dot(energy_value, params=params)  # torchviz 会自动使用变量名作为节点标签
+dot.render("test_graph", format="png", cleanup=True)  # 生成 test_graph.png

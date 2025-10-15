@@ -24,13 +24,15 @@ from torch_collision_detector import TorchCollisionDetector
 ## 2.collision detector
 # contact pairs gather
 
-### TODO:
 ## 3.finite difference method
 # computation force by finite differnce method 
 # computation hessian by finite differnce method 
 
 ## 4.automatic differentiation
 # computation force and hessian by automatic differentiation
+
+### TODO:
+# 5.DeBUG
 
 
 # -----------------------------
@@ -381,9 +383,11 @@ def compute_finite_difference_results(
         中心差分计算Hessian - PyTorch版本
         """
         N = vertices_no_grad.shape[0]
-        h = 1e-4
+        h = 1e-3
         
-        force_fd = torch.zeros_like(vertices_no_grad)
+        # force
+        # 展平索引，逐个 perturb
+        grad = torch.zeros_like(vertices_no_grad)
         for idx in range(N):
             for space_dx in range(3):
                 perturb = torch.zeros_like(vertices_no_grad)
@@ -404,35 +408,30 @@ def compute_finite_difference_results(
 
                 # print(f'f_plus = {f_plus}, f_minus = {f_minus}')
 
-                force_fd[idx,space_dx] = (f_plus - f_minus) / (2 * h)
-        
-        hessian_fd = torch.zeros((N, N, 3, 3), dtype=vertices_no_grad.dtype, device=vertices_no_grad.device)
-        
-        for idx in range(N):
-            for jdx in range(N):
-                for space_idx in range(3):
-                    for space_jdx in range(3):
-                        perturb = torch.zeros_like(vertices_no_grad)
-                        perturb[jdx,space_jdx] = h
-                        
-                        _, f_plus, _ = compute_full_hessian(
-                            vertices + perturb, 
-                            vertices_no_grad + perturb,
-                            edge_indices, edge_colliding_edges, 
-                            tri_indices, vertex_colliding_triangles, 
-                            contact_radius, contact_stiffness)
-                        _, f_minus, _ = compute_full_hessian(
-                            vertices - perturb, 
-                            vertices_no_grad - perturb,
-                            edge_indices, edge_colliding_edges, 
-                            tri_indices, vertex_colliding_triangles, 
-                            contact_radius, contact_stiffness)
+                grad[idx,space_dx] = (f_plus - f_minus) / (2 * h)
 
-                        # print('\n---3---\n')
-                        
-                        hessian_fd[idx,jdx,:,space_jdx] = ((f_plus[idx] - f_minus[idx]) / (2 * h))
+        # hessian
+        Jacobi = torch.zeros((N, N, 3, 3), dtype=vertices_no_grad.dtype, device=vertices_no_grad.device)
+        for jdx in range(N):
+            for space_jdx in range(3):
+                perturb = torch.zeros_like(vertices_no_grad)
+                perturb[jdx,space_jdx] = h
+                
+                _, f_plus, _ = compute_full_hessian(
+                    vertices + perturb, 
+                    vertices_no_grad + perturb,
+                    edge_indices, edge_colliding_edges, 
+                    tri_indices, vertex_colliding_triangles, 
+                    contact_radius, contact_stiffness)
+                _, f_minus, _ = compute_full_hessian(
+                    vertices - perturb, 
+                    vertices_no_grad - perturb,
+                    edge_indices, edge_colliding_edges, 
+                    tri_indices, vertex_colliding_triangles, 
+                    contact_radius, contact_stiffness)
+                Jacobi[:, jdx, :, space_jdx] = (f_plus - f_minus) / (2 * h)
         
-        return -force_fd, -hessian_fd
+        return -grad, -Jacobi
 
 
 # =============================
@@ -481,8 +480,8 @@ def compute_automatic_diff_results(
 
 if __name__ == "__main__":
     # input_mesh
-    vertices = [wp.vec3(0.0, 0.0, 0.0), wp.vec3(0.0, 0.5, 0.0), wp.vec3(0.5, 0.0, 0.0),
-                wp.vec3(0.0, 0.0, 0.1), wp.vec3(0.0, 0.5, 0.1), wp.vec3(0.5, 0.0, 0.1)]
+    vertices = [wp.vec3(0.0, 0.0, 0.0), wp.vec3(0.0, 0.5, 0.0), wp.vec3(0.0, 0.0, 1.0),
+                wp.vec3(0.01, 0.01, 0.01), wp.vec3(0.01, 0.51, 0.01), wp.vec3(0.01, 0.01, 1.01)]
 
     mesh_indices = [0,1,2,3,4,5]
 
@@ -541,4 +540,8 @@ if __name__ == "__main__":
     print('\nhessian_auto:', hessian_auto.shape)
     print('\nhessian_auto (max min):', hessian_auto.max(), hessian_auto.min())
     print('\nHessian vs auto Hessian:', torch.norm(Hessian-hessian_auto, p=float('inf')), 
-        torch.norm(Hessian-hessian_auto, p=float('inf')) == 0)
+        torch.max(torch.abs(Hessian-hessian_auto)) == 0)
+
+    print('\n---fd hessian and hessian')
+    print('\nhessian', hessian_fd)
+    print('\nhessian_auto', hessian_auto)

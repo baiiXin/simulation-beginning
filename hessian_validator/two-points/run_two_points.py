@@ -1,5 +1,6 @@
 import torch
 from hessian_point_validator import HessianPointValidator
+from torchviz import make_dot
 
 torch.set_default_dtype(torch.float64)
 # 设置打印精度为 10 位小数
@@ -64,11 +65,19 @@ class LineEnergy:
         return torch.zeros((3, 3), device='cpu')
 
 # 测试点
-test_point=torch.tensor([[1.0, 1.0, 1.0], [0.0, 0.0, 0.0]], device='cpu')
+test_point=torch.tensor([[0.0, 0.0, 0.0], [0.01, 0.01, 0.01]], device='cpu')
 
 # 使用
 energy = ContactEnergy(point=test_point)
 print('\nceshi:', energy(test_point[0], test_point[1]),'\n')
+
+test_point.requires_grad_(True)
+
+energy_value = energy(test_point[0], test_point[1])
+params = {'x_a': test_point[0], 'x_b': test_point[1]}
+dot = make_dot(energy_value, params=params)  # torchviz 会自动使用变量名作为节点标签
+dot.render("test_graph", format="png", cleanup=True)  # 生成 test_graph.png
+
 
 # 点验证
 point_validator = HessianPointValidator(tolerance = 1e-3, device='cpu')
