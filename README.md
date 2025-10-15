@@ -1,4 +1,4 @@
-### 环境
+### Environment
 
 [Installation — Newton Physics](https://newton-physics.github.io/newton/guide/installation.html)
 
@@ -20,14 +20,14 @@ uv run -m newton.examples
 ```
 
 
-
-### 部分文件结构
+### Run
 
 cloth_simulation_by_zcy_first：The simplest model using only NumPy. 
 
 cloth_simulation_by_zcy_new：Add self-collision using Torch, Warp, and Newton. 
 
 
+### Folder Structure 
 
 | 文件夹/文件结构                             | 说明                                       |
 | :------------------------------------------ | :----------------------------------------- |
