@@ -7,7 +7,7 @@ import trimesh
 # cpmpute bounds
 import newton
 from newton._src.solvers.zcy_vbd.tri_mesh_collision import TriMeshCollisionDetector
-from newton._src.solvers.zcy_vbd.zcy_solver_vbd import zcy_SolverVBD, get_vertex_num_adjacent_edges, get_vertex_adjacent_edge_id_order, get_vertex_num_adjacent_faces, get_vertex_adjacent_face_id_order, ForceElementAdjacencyInfo
+from newton._src.solvers.zcy_vbd.zcy_solver_vbd import zcy_SolverVBD
 
 ### cloth sim
 from scipy.sparse import csr_matrix
@@ -50,12 +50,8 @@ class Mass:
 
         # fixed points
         # 初始化
-        self.fixed_idx = [36, 44] #[72, 80] #[0, 8] #[36, 44]
-        self.all_idx = np.arange(self.num)
-        self.free_idx = np.setdiff1d(self.all_idx, self.fixed_idx)
-        free_idx = np.array(self.free_idx)
-        dof_matrix = 3 * free_idx[:, np.newaxis] + np.arange(3)
-        self.free_dof = dof_matrix.flatten()
+        self.fixed_idx = [0, 4]#[10, 14] #[72, 80] #[0, 8] #[36, 44]
+        self._compute_fixed_information()
 
         # 初始值
         self.pos_prev = self.pos_cur.copy()
@@ -94,7 +90,13 @@ class Mass:
 
         self.vbd_integrator = zcy_SolverVBD(
             model=self.model, 
+            # fixed particle information
+            fixed_particle_num = self.fixed_particle_num,
+            free_particle_offset = self.free_particle_offset,
+            all_particle_flag = self.all_particle_flag,
+            # other
             iterations=self.iterations, 
+            # before
             handle_self_contact=True,
             spring_indices = self.spring_indices, 
             spring_rest_length = self.spring_rest_length, 
@@ -149,3 +151,21 @@ class Mass:
         self.pos_warp, self.pos_prev_warp = self.pos_prev_warp, self.pos_warp
 
         return Newton_step, times_ms, Error_dx_norm, Residual_norm, Energy_norm
+
+    def _compute_fixed_information(self):
+        self.fixed_particle_num = len(self.fixed_idx)
+
+        self.all_particle_flag = []
+        self.free_particle_offset = []
+        flag = 0
+        for i in range(self.num):
+            if i in self.fixed_idx:
+                self.all_particle_flag.append(-1)
+                flag += 1
+            else:
+                self.all_particle_flag.append(flag)
+                self.free_particle_offset.append(flag)
+
+        self.all_particle_flag = wp.array(self.all_particle_flag, dtype=wp.int32)
+        self.free_particle_offset = wp.array(self.free_particle_offset, dtype=wp.int32)
+            

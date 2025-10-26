@@ -25,8 +25,8 @@ a = -2.0
 b = 2.0 
 c = -2.0
 d = 2.0
-h1 = 0.5
-h2 = 0.5
+h1 = 1.0
+h2 = 1.0
 #fixed_num0 = (int((b-a)/h1)+1)*2 + 1
 #fixed_num1 = (int((b-a)/h1)+1)*3 + 1 
 #fixed_num = [fixed_num0, fixed_num1]
@@ -44,7 +44,7 @@ gravity = 9.8
 # simulation
 # 初始参数
 dt = 0.03
-N = 100
+N = 50
 ite_num = 4
 tolerance_newton = 1e-6
 
