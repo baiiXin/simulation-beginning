@@ -25,8 +25,8 @@ a = -2.0
 b = 2.0 
 c = -2.0
 d = 2.0
-h1 = 1.0
-h2 = 1.0
+h1 = 0.5
+h2 = 0.5
 #fixed_num0 = (int((b-a)/h1)+1)*2 + 1
 #fixed_num1 = (int((b-a)/h1)+1)*3 + 1 
 #fixed_num = [fixed_num0, fixed_num1]
@@ -45,15 +45,15 @@ gravity = 9.8
 # 初始参数
 dt = 0.03
 N = 50
-ite_num = 4
-tolerance_newton = 1e-6
+ite_num = 5
+tolerance_newton = 1e-4
 
 # 球体参数
 sphere_center = np.array([0, -0.5, 6.0])  # 球心坐标
 sphere_radius = 0.99                      # 球半径
 
 # 仿真计算
-[triangles, cloth_data, Newton_steps, times_ms, Error_dx_norm, Residual_norm, Energy_norm] = generate_cloth(a, b, c, d, h1, h2, z, mass_m, stiff_k, dump, gravity, dt, N, ite_num, tolerance_newton, fixed_num)
+[triangles, cloth_data, Newton_steps, times_ms, Error_dx_norm, Residual_norm, Energy_norm, vel_data] = generate_cloth(a, b, c, d, h1, h2, z, mass_m, stiff_k, dump, gravity, dt, N, ite_num, tolerance_newton, fixed_num)
 
 # =================== 动画部分 ===================
 fig = plt.figure(figsize=(8, 6))
@@ -79,6 +79,7 @@ def update(frame):
     ax.set_ylabel('Y')
     ax.set_zlabel('Z')
 
+    '''
     # -------- 绘制固定球体 --------
     # 绘制固定球体（根据球心和半径）
     u, v = np.mgrid[0:2*np.pi:20j, 0:np.pi:10j]
@@ -86,6 +87,7 @@ def update(frame):
     y_sphere = sphere_radius * np.sin(u) * np.sin(v) + sphere_center[1]
     z_sphere = sphere_radius * np.cos(v) + sphere_center[2]
     ax.plot_surface(x_sphere, y_sphere, z_sphere, color='b', alpha=1.0, linewidth=0)
+    '''
 
 
     # -------- 绘制布料表面 --------

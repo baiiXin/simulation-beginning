@@ -3,6 +3,7 @@ from platform import java_ver
 import warp as wp
 import numpy as np
 import trimesh
+import os
 
 # cpmpute bounds
 import newton
@@ -47,10 +48,14 @@ class Mass:
         self.iterations = 10
         # self.fixed_num = 9
         self.space_dim = 3
+        self.load = False
+
+        # load vertexs
+        self._load_cloth_data(self.load)
 
         # fixed points
         # 初始化
-        self.fixed_idx = [0, 4]#[10, 14] #[72, 80] #[0, 8] #[36, 44]
+        self.fixed_idx = [36, 44]#[360, 440] #[0, 4] #[10, 14] #[72, 80] #[0, 8] #[36, 44]
         self._compute_fixed_information()
 
         # 初始值
@@ -89,7 +94,10 @@ class Mass:
         print('spring_indices', type(self.spring_indices))
 
         self.vbd_integrator = zcy_SolverVBD(
-            model=self.model, 
+            model=self.model,
+            # self parameters
+            dt = self.dt,
+            mass = self.mass,
             # fixed particle information
             fixed_particle_num = self.fixed_particle_num,
             free_particle_offset = self.free_particle_offset,
@@ -143,10 +151,12 @@ class Mass:
             dt = self.dt, 
             mass = self.mass, 
             damping = self.damp, 
-            num_iter = ite_num
+            num_iter = ite_num,
+            tolerance = self.tolerance_newton,
         )
 
         self.pos_cur = self.pos_warp.numpy()
+        self.vel_cur = self.vel_warp.numpy()
 
         self.pos_warp, self.pos_prev_warp = self.pos_prev_warp, self.pos_warp
 
@@ -168,4 +178,28 @@ class Mass:
 
         self.all_particle_flag = wp.array(self.all_particle_flag, dtype=wp.int32)
         self.free_particle_offset = wp.array(self.free_particle_offset, dtype=wp.int32)
-            
+
+    def _load_cloth_data(self, load=False):
+        if not load:
+            return
+        # 获取当前脚本文件所在目录
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+
+        # 拼出 data 目录的绝对路径
+        file_path = os.path.join(script_dir, "data", "verts_last_frame.npy")
+        file_path_vel = os.path.join(script_dir, "data", "vel_last_frame.npy")
+        
+        # 判断文件是否存在
+        if not os.path.exists(file_path):
+            print(f"未找到文件: {file_path}，跳过加载。")
+            return
+
+        # 加载数据
+        verts = np.load(file_path)
+        vel = np.load(file_path_vel)
+        self.pos_cur = verts
+        self.vel_cur = vel
+        print('\n---Finish loading cloth data---\n')
+        #print('pos_cur', self.pos_cur)
+        #print('vel_cur', self.vel_cur)
+
