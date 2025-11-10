@@ -1,0 +1,31 @@
+{
+    // === LaTeX Workshop 基本设置 ===
+    "latex-workshop.latex.autoBuild.run": "onSave",         // 保存时自动编译
+    "latex-workshop.view.pdf.viewer": "tab",                 // 在 VS Code 标签页内预览 PDF
+    "latex-workshop.latex.outDir": "./out",                  // 编译输出到 out 文件夹
+
+    // === 编译流程（使用 XeLaTeX，支持中文） ===
+    "latex-workshop.latex.recipes": [
+        {
+            "name": "XeLaTeX",
+            "tools": ["xelatex"]
+        }
+    ],
+
+    "latex-workshop.latex.tools": [
+        {
+            "name": "xelatex",
+            "command": "xelatex",
+            "args": [
+                "-interaction=nonstopmode",   // 自动继续编译，不中断
+                "-synctex=1",                  // 同步 PDF 与源代码位置
+                "-file-line-error",
+                "%DOC%"                        // 当前 .tex 文件
+            ]
+        }
+    ],
+
+    // === 预览同步（可选） ===
+    "latex-workshop.synctex.afterBuild.enabled": true,
+    "latex-workshop.view.pdf.ref.viewer": "tab"
+}

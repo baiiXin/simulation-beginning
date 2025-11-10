@@ -121,6 +121,35 @@ StVK 单位体能量密度：
 
 
 \subsection{来自 $\mu$ 的贡献}
+
+详细推导如下。记
+\[
+\psi_\mu = \mu\,\|G\|_F^2 \;=\; \mu\bigl(G_{00}^2 + G_{11}^2 + 2G_{01}^2\bigr).
+\]
+设 $t_{00}=G_{00},\;t_{11}=G_{11},\;t_{01}=G_{01}$ 以简化记号，则
+\begin{equation}
+\mathrm{d}\psi_\mu = 2\mu\,(t_{00}\,\mathrm{d}t_{00}+t_{11}\,\mathrm{d}t_{11}+2t_{01}\,\mathrm{d}t_{01}).
+\end{equation}
+利用
+\[
+\mathrm{d}t_{00}=f_0\!\cdot\!\mathrm{d}f_0,\quad
+\mathrm{d}t_{11}=f_1\!\cdot\!\mathrm{d}f_1,\quad
+\mathrm{d}t_{01}=\tfrac12\bigl(f_1\!\cdot\!\mathrm{d}f_0+f_0\!\cdot\!\mathrm{d}f_1\bigr),
+\]
+可得一阶导（与前一节结果一致）：
+\begin{align}
+\frac{\partial\psi_\mu}{\partial f_0} &= 2\mu\bigl(t_{00}f_0 + t_{01}f_1\bigr), &
+\frac{\partial\psi_\mu}{\partial f_1} &= 2\mu\bigl(t_{01}f_0 + t_{11}f_1\bigr).
+\end{align}
+再对 $f$ 求导：
+\begin{align}
+\frac{\partial^2\psi_\mu}{\partial f_0\partial f_0} &= 2\mu\Bigl[(f_0\cdot f_0)\,\Ithree + 2\,(f_0\otimes f_0) + (f_1\otimes f_1)\Bigr],\\
+\frac{\partial^2\psi_\mu}{\partial f_1\partial f_1} &= 2\mu\Bigl[(f_1\cdot f_1)\,\Ithree + 2\,(f_1\otimes f_1) + (f_0\otimes f_0)\Bigr],\\
+\frac{\partial^2\psi_\mu}{\partial f_0\partial f_1} &= 2\mu\Bigl[(f_0\cdot f_1)\,\Ithree + (f_1\otimes f_0)\Bigr],\\
+\frac{\partial^2\psi_\mu}{\partial f_1\partial f_0} &= 2\mu\Bigl[(f_0\cdot f_1)\,\Ithree + (f_0\otimes f_1)\Bigr].
+\end{align}
+为了与文献及实现中的惯用记法一致，本文将整体因子 $2\mu$ 折半写作 $\mu$，于是得到下列表达式：
+
 对 $\|G\|_F^2$ 展开并整理（略去冗长代数，给出结果与物理解释）：
 \begin{align}
 \mathcal{A}_{00}^\mu &= \mu\big( (f_0\cdot f_0)\, \Ithree + 2(f_0\otimes f_0) + (f_1\otimes f_1) \big),\\
