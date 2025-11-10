@@ -1,0 +1,216 @@
+% !TeX program = xelatex
+\documentclass[11pt]{article}
+\usepackage[UTF8]{ctex} % 中文内容建议使用 XeLaTeX/LuaLaTeX 编译
+\usepackage{amsmath,amssymb,bm}
+\usepackage{mathtools}
+\usepackage{geometry}
+\geometry{a4paper, margin=1in}
+\usepackage{hyperref}
+\usepackage{listings}
+
+% 便捷记号
+\newcommand{\Ithree}{\mathbf{I}_3}
+\newcommand{\tr}{\operatorname{tr}}
+
+\title{St. Venant--Kirchhoff (StVK) 三角单元 Hessian 的规范推导}
+\author{\small 符号化推导与实现对照}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section*{目的与概览}
+将三角单元（3 个顶点，每顶点 3 自由度）的 StVK 能量到位置空间的二阶导数（Hessian）做出完整、符号化、逐步的推导，并给出便于实现的块矩阵表达式与伪代码。文档按数学推导（变分）顺序排列，便于学术写作与审稿附件。
+
+\section{记号与约定}
+\begin{itemize}
+  \item 顶点索引：$a,b\in\{0,1,2\}$。顶点位置 $x_a\in\mathbb{R}^3$。单元自由度按顶点排列：$[x_0,x_1,x_2]$。
+  \item 变形梯度 $F\in\mathbb{R}^{3\times 2}$ 写作列向量：$F=[f_0\, f_1]$，其中 $f_0,f_1\in\mathbb{R}^3$。
+  \item 参考到当前的线性映射（逆形变梯度 $\mathrm{Dm}^{-1}$）分量：$D_{00},D_{01},D_{10},D_{11}$。定义局部边向量：$x_{01}=x_1-x_0,\ x_{02}=x_2-x_0$。
+  \item 单元面积（或面积权重）记为 $A$（如需积分乘以面积）。
+  \item StVK 材料参数：$\mu,\lambda$。单位矩阵：$\Ithree$。外积：$u\otimes v = u v^\top$。
+\end{itemize}
+
+\section{从位置到 \texorpdfstring{$F$}{F} 的线性关系}
+\begin{align}
+f_0 &= x_{01} D_{00} + x_{02} D_{10} = - (D_{00}+D_{10}) x_0 + D_{00} x_1 + D_{10} x_2,\\
+f_1 &= x_{01} D_{01} + x_{02} D_{11} = - (D_{01}+D_{11}) x_0 + D_{01} x_1 + D_{11} x_2.
+\end{align}
+于是对任意顶点 $a$，有
+\begin{equation}\label{eq:dfdx_coeff}
+\frac{\partial f_i}{\partial x_a} = \alpha^i_a\, \Ithree,\qquad i\in\{0,1\},\ a\in\{0,1,2\},
+\end{equation}
+其中系数
+\begin{align}
+\alpha^0 &= [\alpha^0_0,\alpha^0_1,\alpha^0_2] = [-(D_{00}+D_{10}),\ D_{00},\ D_{10}],\\
+\alpha^1 &= [\alpha^1_0,\alpha^1_1,\alpha^1_2] = [-(D_{01}+D_{11}),\ D_{01},\ D_{11}].
+\end{align}
+这是线性的关键——$\partial f_i/\partial x_a$ 是标量乘单位矩阵，因此拉回到位置空间时非常简洁。
+
+\section{Green 应变与能量密度}
+定义 Green 应变分量：
+\begin{align}
+G_{00} &= \tfrac12 (f_0\cdot f_0 - 1),&
+G_{11} &= \tfrac12 (f_1\cdot f_1 - 1),&
+G_{01} &= \tfrac12 (f_0\cdot f_1).
+\end{align}
+写成矩阵形式：$G=\tfrac12(F^\top F - I_2)$，$G$ 为对称 $2\times2$ 矩阵。
+\\
+StVK 单位体能量密度：
+\begin{equation}
+\psi = \mu\,\|G\|_F^2 + \tfrac12\lambda\,(\tr G)^2,
+\end{equation}
+其中 $\|G\|_F^2 = G_{00}^2 + G_{11}^2 + 2 G_{01}^2$，$\tr G = G_{00}+G_{11}$。
+
+\section{一阶导：$\partial\psi/\partial f_i$（PK1 的列）}
+先写对 $G$ 的偏导：
+\begin{align}
+\frac{\partial\psi}{\partial G_{00}} &= 2\mu\, G_{00} + \lambda\,t, &
+\frac{\partial\psi}{\partial G_{11}} &= 2\mu\, G_{11} + \lambda\,t, &
+\frac{\partial\psi}{\partial G_{01}} &= 4\mu\, G_{01},
+\end{align}
+其中 $t=\tr G=G_{00}+G_{11}$。再用 $G$ 关于 $f$ 的导数：
+\begin{align}
+\delta G_{00} &= f_0\cdot \delta f_0, &
+\delta G_{11} &= f_1\cdot \delta f_1, &
+\delta G_{01} &= \tfrac12\,(f_1\cdot \delta f_0 + f_0\cdot \delta f_1).
+\end{align}
+得到对 $f_0,f_1$ 的一阶导（列向量形式）：
+\begin{align}
+\frac{\partial\psi}{\partial f_0} &= f_0(2\mu\, G_{00} + \lambda\, t) + f_1(2\mu\, G_{01}),\\
+\frac{\partial\psi}{\partial f_1} &= f_0(2\mu\, G_{01}) + f_1(2\mu\, G_{11} + \lambda\, t).
+\end{align}
+
+\section{二阶导：$\partial^2\psi/\partial f_i\partial f_j$（$f$ 空间的 Hessian）}
+我们寻找 $3\times3$ 矩阵块 $\mathcal{A}_{ij}$，使得对任意微分 $\delta f_0,\delta f_1$：
+\begin{equation}
+\delta^2\psi = \begin{bmatrix}\delta f_0^\top & \delta f_1^\top\end{bmatrix}
+\begin{bmatrix}\mathcal{A}_{00} & \mathcal{A}_{01} \\
+\mathcal{A}_{10} & \mathcal{A}_{11}\end{bmatrix}
+\begin{bmatrix}\delta f_0 \\ \delta f_1\end{bmatrix}.
+\end{equation}
+将 $\psi = \mu\,\|G\|_F^2 + \tfrac12\lambda\, t^2$ 分别考察两部分的二阶导。
+
+\subsection{来自 $\lambda$ 的贡献}
+直接计算可得（对称形式）：
+\begin{align}
+\mathcal{A}_{00}^\lambda &= \lambda\,(f_0\otimes f_0), &
+\mathcal{A}_{11}^\lambda &= \lambda\,(f_1\otimes f_1), &
+\mathcal{A}_{01}^\lambda &= \lambda\,(f_0\otimes f_1), &
+\mathcal{A}_{10}^\lambda &= (\mathcal{A}_{01}^\lambda)^\top = \lambda\,(f_1\otimes f_0).
+\end{align}
+解释：$t=G_{00}+G_{11}$ 关于 $f$ 的梯度与自身成比例，因此 $\partial^2 (\tfrac12\lambda t^2)$ 给出外积结构。
+
+解释更详尽地如下。设
+\[
+\psi_\lambda = \tfrac12 \lambda \, t^2,\qquad t = G_{00}+G_{11}= \tfrac12\bigl(\|f_0\|^2+\|f_1\|^2\bigr)-1.
+\]
+由链式法则，
+\[
+\frac{\partial\psi_\lambda}{\partial f_0}= \lambda t\,\frac{\partial t}{\partial f_0}= \lambda t\,f_0,\qquad
+\frac{\partial\psi_\lambda}{\partial f_1}= \lambda t\,\frac{\partial t}{\partial f_1}= \lambda t\,f_1.
+\]
+再次对 $f$ 求导并用 $\tfrac{\partial t}{\partial f_0}=f_0,\ \tfrac{\partial t}{\partial f_1}=f_1$，可得
+\begin{align}
+\frac{\partial^2\psi_\lambda}{\partial f_0\partial f_0} &= \lambda\bigl(f_0\otimes f_0 + t\,\Ithree\bigr),\\
+\frac{\partial^2\psi_\lambda}{\partial f_1\partial f_1} &= \lambda\bigl(f_1\otimes f_1 + t\,\Ithree\bigr),\\
+\frac{\partial^2\psi_\lambda}{\partial f_0\partial f_1} &= \lambda\,(f_0\otimes f_1),\\
+\frac{\partial^2\psi_\lambda}{\partial f_1\partial f_0} &= \lambda\,(f_1\otimes f_0).
+\end{align}
+其中各对角块中的各向同性项 $\lambda t\,\Ithree$ 与随后 $\mu$ 部分得到的对应项一并归纳进公式 \eqref{eq:c_def} 的 $c\,\Ithree$，故本小节所给的 $\lambda$ 项仅保留外积结构，与上式一致。
+
+
+\subsection{来自 $\mu$ 的贡献}
+对 $\|G\|_F^2$ 展开并整理（略去冗长代数，给出结果与物理解释）：
+\begin{align}
+\mathcal{A}_{00}^\mu &= \mu\big( (f_0\cdot f_0)\, \Ithree + 2(f_0\otimes f_0) + (f_1\otimes f_1) \big),\\
+\mathcal{A}_{11}^\mu &= \mu\big( (f_1\cdot f_1)\, \Ithree + 2(f_1\otimes f_1) + (f_0\otimes f_0) \big),\\
+\mathcal{A}_{01}^\mu &= \mu\big( (f_0\cdot f_1)\, \Ithree + (f_1\otimes f_0) \big),\\
+\mathcal{A}_{10}^\mu &= (\mathcal{A}_{01}^\mu)^\top = \mu\big( (f_0\cdot f_1)\, \Ithree + (f_0\otimes f_1) \big).
+\end{align}
+此外还有一个标量乘 $\Ithree$ 的合并项（对应实现中的 \texttt{two\_dpsi\_dIc}）：
+\begin{equation}\label{eq:c_def}
+c := -\mu + \big(\tfrac12 I_c - 1\big)\,\lambda,\qquad I_c = f_0\cdot f_0 + f_1\cdot f_1.
+\end{equation}
+这个 $c$ 项乘以 $\Ithree$ 需要被加入到 $\mathcal{A}_{00}$ 与 $\mathcal{A}_{11}$：
+\begin{align}
+\mathcal{A}_{00} &\leftarrow \mathcal{A}_{00} + c\, \Ithree, &
+\mathcal{A}_{11} &\leftarrow \mathcal{A}_{11} + c\, \Ithree.
+\end{align}
+
+\subsection{合并得到 $\mathcal{A}_{ij}$ 的闭式}
+\begin{align}
+\mathcal{A}_{00} &= \lambda (f_0\otimes f_0) + c\, \Ithree + \mu\big( (f_0\cdot f_0)\, \Ithree + 2(f_0\otimes f_0) + (f_1\otimes f_1)\big), \label{eq:A00}\\
+\mathcal{A}_{01} &= \lambda (f_0\otimes f_1) + \mu\big( (f_0\cdot f_1)\, \Ithree + (f_1\otimes f_0)\big), \label{eq:A01}\\
+\mathcal{A}_{11} &= \lambda (f_1\otimes f_1) + c\, \Ithree + \mu\big( (f_1\cdot f_1)\, \Ithree + 2(f_1\otimes f_1) + (f_0\otimes f_0)\big). \label{eq:A11}
+\end{align}
+上述表达式与实现中 \texttt{d2E\_dF2\_00/01/11} 相对应。
+
+\section{将 $F$ 空间的 Hessian 拉回到位置空间（块矩阵 $H_{ab}$）}
+链式法则（块形式）：
+\begin{equation}\label{eq:block_chain}
+H_{ab} = \sum_{i,j\in\{0,1\}} \left(\frac{\partial f_i}{\partial x_a}\right)^\top \mathcal{A}_{ij} \left(\frac{\partial f_j}{\partial x_b}\right).
+\end{equation}
+利用 \eqref{eq:dfdx_coeff} 中的 $\partial f_i/\partial x_a = \alpha^i_a \Ithree$，得到简洁形式：
+\begin{equation}\label{eq:Hab}
+H_{ab} = \alpha^0_a\alpha^0_b\,\mathcal{A}_{00} + \alpha^1_a\alpha^1_b\,\mathcal{A}_{11} + \alpha^0_a\alpha^1_b\,\mathcal{A}_{01} + \alpha^1_a\alpha^0_b\,\mathcal{A}_{01}^\top.
+\end{equation}
+这是对每个顶点对 $(a,b)$ 的 $3\times3$ 块矩阵。将所有 $H_{ab}$ 按行列放入即可得到完整的 $9\times9$ Hessian。理论上 $H_{ab}=H_{ba}^\top$，数值实现应显式保证对称性（例如最后做 $H=(H+H^\top)/2$）。
+
+\section{部分块展开举例}
+令 $a=0$，写出 $H_{00},H_{01},H_{02}$：
+\begin{align}
+H_{00} &= (\alpha^0_0)^2\,\mathcal{A}_{00} + (\alpha^1_0)^2\,\mathcal{A}_{11} + \alpha^0_0\alpha^1_0\,\mathcal{A}_{01} + \alpha^1_0\alpha^0_0\,\mathcal{A}_{01}^\top,\\
+H_{01} &= \alpha^0_0\alpha^0_1\,\mathcal{A}_{00} + \alpha^1_0\alpha^1_1\,\mathcal{A}_{11} + \alpha^0_0\alpha^1_1\,\mathcal{A}_{01} + \alpha^1_0\alpha^0_1\,\mathcal{A}_{01}^\top,\\
+H_{02} &= \alpha^0_0\alpha^0_2\,\mathcal{A}_{00} + \alpha^1_0\alpha^1_2\,\mathcal{A}_{11} + \alpha^0_0\alpha^1_2\,\mathcal{A}_{01} + \alpha^1_0\alpha^0_2\,\mathcal{A}_{01}^\top.
+\end{align}
+
+\section{实现伪代码（可直接映射到 \texttt{evaluate\_stvk\_force\_hessian}）}
+\begin{lstlisting}[language={},basicstyle=\ttfamily\small]
+# 1. 计算 f0, f1
+f0 = x01 * D00 + x02 * D10
+f1 = x01 * D01 + x02 * D11
+
+# 2. 基本内积与应变
+f0f0 = dot(f0,f0); f1f1 = dot(f1,f1); f0f1 = dot(f0,f1)
+G00 = 0.5*(f0f0 - 1); G11 = 0.5*(f1f1 - 1); G01 = 0.5*f0f1
+t = G00 + G11
+Ic = f0f0 + f1f1
+c = -mu + (0.5*Ic - 1.0)*lambda
+
+# 3. 构造 A_ij （3x3 矩阵） 按 (A00),(A01),(A11)
+A00 = lambda*(f0 outer f0) + c*I3 + mu*( f0f0*I3 + 2*(f0 outer f0) + (f1 outer f1) )
+A01 = lambda*(f0 outer f1) + mu*( f0f1*I3 + (f1 outer f0) )
+A11 = lambda*(f1 outer f1) + c*I3 + mu*( f1f1*I3 + 2*(f1 outer f1) + (f0 outer f0) )
+
+# 4. 计算 alpha 系数
+alpha0 = [-(D00+D10), D00, D10]
+alpha1 = [-(D01+D11), D01, D11]
+
+# 5. 组装 H_ab 块
+for a in 0..2:
+  for b in 0..2:
+    H_ab = alpha0[a]*alpha0[b]*A00 + alpha1[a]*alpha1[b]*A11 
+          + alpha0[a]*alpha1[b]*A01 + alpha1[a]*alpha0[b]*A01^T
+    place H_ab into global 9x9 at block (a,b)  # each H_ab is 3x3
+
+# 6. 可选：乘以面积 A。
+H *= A
+# 7. 强制对称化： H = 0.5*(H + H^T)
+\end{lstlisting}
+
+\section{数值与数学注意事项}
+\begin{itemize}
+  \item 当应变非常小时（$\|G\|\to 0$），可用线性化近似以降低计算量，或如代码所示阈值返回零以避免奇异。
+  \item 确保数值对称性（末尾对称化步骤）。
+  \item 若要加入阻尼或质量矩阵影响（如隐式时间积分），需在此基础上再加相应项；本文件只覆盖弹性 StVK 部分。
+\end{itemize}
+
+\section*{变量对应（对照 Python/Warp 实现）}
+\begin{itemize}
+  \item \texttt{f0} $\leftrightarrow$ $f_0$； \texttt{f1} $\leftrightarrow$ $f_1$。
+  \item \texttt{DmInv00/01/10/11} $\leftrightarrow$ $D_{00},D_{01},D_{10},D_{11}$。
+  \item \texttt{df0\_dx}, \texttt{df1\_dx} 源自 $\alpha^i_a$ 与顶点选择（mask）的组合。
+\end{itemize}
+
+\end{document}
