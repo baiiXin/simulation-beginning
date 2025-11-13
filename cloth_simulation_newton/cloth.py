@@ -106,8 +106,8 @@ class Mass:
             iterations=self.iterations, 
             # before
             handle_self_contact=True,
-            self_contact_radius=0.05,
-            self_contact_margin=0.05,
+            self_contact_radius=0.08,
+            self_contact_margin=0.08,
             spring_indices = self.spring_indices, 
             spring_rest_length = self.spring_rest_length, 
             spring_stiffness = self.spring_stiffness
