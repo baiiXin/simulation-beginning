@@ -35,15 +35,15 @@ mass_m = 1
 stiff_k = 8000
 
 # 阻尼参数
-dump = 1.0
+dump = 0.9998
 gravity = 9.8
 
 # simulation
 # 初始参数
-dt = 0.015
-N = 300
-ite_num = 4
-tolerance_newton = 1e-6
+dt = 0.001
+N = 1500
+ite_num = 100
+tolerance_newton = 1e-10
 
 # 球体参数
 sphere_center = np.array([0.5, -0.5, 6.0])  # 球心坐标
