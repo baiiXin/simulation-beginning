@@ -20,8 +20,10 @@ def load_cloth_data():
     candidates = [
         os.path.join(script_dir, "..", "cloth_simulation_newton", "data", "cloth_data.npy"),
         os.path.join(script_dir, "..", "cloth_simulation_newton", "data", "verts_frames.npy"),
+        os.path.join(script_dir, "..", "cloth_simulation_newton", "data", "cloth_all_frame.npy"),
         r"D:\Z-Documents\simulation\repo_sim_cloth\cloth_simulation_newton\data\cloth_data.npy",
         r"D:\Z-Documents\simulation\repo_sim_cloth\cloth_simulation_newton\data\verts_frames.npy",
+        r"D:\Z-Documents\simulation\repo_sim_cloth\cloth_simulation_newton\data\cloth_all_frame.npy",
     ]
     # 优先加载完整帧序列 (N, M, 3)
     p = _find_file(candidates)
@@ -95,7 +97,7 @@ def main():
             pass
     # 5) 输出配置：视频或帧序列
     output_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cloth_polyscope.mp4")
-    fps = 120
+    fps = 240
     frame_size = (1280, 720)
     tmp_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "frame_tmp.png")
     if cv2 is not None:
@@ -114,7 +116,7 @@ def main():
     if radius < 1e-6:
         radius = 1.0
     R = max(1.5, 1.2 * radius)
-    height = -R
+    height = R
     # 7) 帧循环：更新顶点、绕圈拍摄、写出视频/帧
     for frame in range(N):
         verts = cloth_data[frame]
