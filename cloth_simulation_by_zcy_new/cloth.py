@@ -1,8 +1,16 @@
+import os
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"  # 避免 OMP 冲突
+
 import numpy as np
 from scipy.sparse import csr_matrix
-from scipy.sparse.linalg import spsolve
+from scipy.sparse.linalg import spsolve as scipy_spsolve
 from scipy.sparse.linalg import cg, bicgstab
+from pypardiso import spsolve as pardiso_spsolve
 import time
+
+# Example:
+# x = pardiso_spsolve(A, b)
+
 
 from torch_contact_computation.torch_contact_computation import TorchContactComputation
 
@@ -55,7 +63,7 @@ class Mass:
         # contact computation
         contact_radius = 0.2
         contact_margin = 0.3
-        contact_stiffness = 1000.0
+        contact_stiffness = 10000.0
 
         # contact computation
         self.contact_computation = TorchContactComputation(
@@ -96,6 +104,9 @@ class Mass:
 
         # 迭代
         for times in range(ite_num):
+            # collision detection
+            self.contact_computation.collision_detect(self.pos_hat)
+
             # 计时
             start_time = time.time()
 
@@ -110,7 +121,8 @@ class Mass:
             A_sparse = csr_matrix(A_free)
             
             # 计算dX
-            dX_free, info = cg(A_sparse, b_free)
+            # dX_free, info = cg(A_sparse, b_free)
+            dX_free = pardiso_spsolve(A_sparse, b_free)
             # print('cg:',info)
 
             # 更新位置（只更新非固定点）
@@ -147,8 +159,10 @@ class Mass:
             print('Enegy = ', Energy)
             
             # 如果误差足够小，提前结束迭代
-            if error_dx_norm < self.tolerance_newton:
+            if residual_norm < self.tolerance_newton:
                 break
+            if times == ite_num - 1:
+                raise RuntimeError("\n--- warning: reach max iter ---\n")
         
         # 更新位置和速度
         self.vel = (self.pos_hat - self.pos) / self.dt * self.dump

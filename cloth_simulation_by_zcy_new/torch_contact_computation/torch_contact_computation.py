@@ -291,10 +291,10 @@ def compute_point_triangle_hessian(
         pt_energy = pt_energy + energy
 
         # 力
-        pt_force[v0_idx] = pt_force[v0_idx] + force * u
-        pt_force[v1_idx] = pt_force[v1_idx] + force * v
-        pt_force[v2_idx] = pt_force[v2_idx] + force * w
-        pt_force[p_idx]   = pt_force[p_idx]   - force
+        pt_force[v0_idx] = pt_force[v0_idx] - force * u
+        pt_force[v1_idx] = pt_force[v1_idx] - force * v
+        pt_force[v2_idx] = pt_force[v2_idx] - force * w
+        pt_force[p_idx]   = pt_force[p_idx] + force
 
         # Hessian
         # tri-tri
