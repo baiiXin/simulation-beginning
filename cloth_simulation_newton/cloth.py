@@ -55,7 +55,7 @@ class Mass:
 
         # fixed points
         # 初始化
-        self.fixed_idx = [36, 44]#[360, 440] #[0, 4] #[10, 14] #[72, 80] #[0, 8] #[36, 44]
+        self.fixed_idx = [0, 1, 2]#[360, 440] #[0, 4] #[10, 14] #[72, 80] #[0, 8] #[36, 44]
         self._compute_fixed_information()
 
         # contact parameters
@@ -84,7 +84,8 @@ class Mass:
                     tri_ke=self.contact_ke,
                     tri_ka=1.0e3,
                     tri_kd=2.0e-6,
-                    edge_ke=self.contact_ke,
+                    edge_ke=1.0e1,
+                    edge_kd=1.0e0,
         )
         self.builder.add_ground_plane()
         self.builder.color(include_bending=True)
