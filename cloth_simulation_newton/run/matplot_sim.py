@@ -46,7 +46,7 @@ gravity = 9.8
 dt = 0.003
 N = 1000
 ite_num = 1000
-tolerance_newton = 1e-4
+tolerance_newton = 1e-3
 
 # 球体参数
 sphere_center = np.array([0, -0.5, 6.0])  # 球心坐标

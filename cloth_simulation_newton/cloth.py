@@ -58,6 +58,12 @@ class Mass:
         self.fixed_idx = [36, 44]#[360, 440] #[0, 4] #[10, 14] #[72, 80] #[0, 8] #[36, 44]
         self._compute_fixed_information()
 
+        # contact parameters
+        self.contact_radius=0.08
+        self.contact_margin=0.08
+        self.contact_ke=1.0e6
+        self.contact_kd=2.0e-6
+
         # 初始值
         self.pos_prev = self.pos_cur.copy()
         self.vel_prev = self.vel_cur.copy()
@@ -75,10 +81,10 @@ class Mass:
                     indices=self.ele.reshape(-1),
                     vel=wp.vec3(0.0, 0.0, 0.0),
                     density=0.02,
-                    tri_ke=1.0e5,
-                    tri_ka=1.0e5,
+                    tri_ke=self.contact_ke,
+                    tri_ka=1.0e3,
                     tri_kd=2.0e-6,
-                    edge_ke=10,
+                    edge_ke=self.contact_ke,
         )
         self.builder.add_ground_plane()
         self.builder.color(include_bending=True)
@@ -106,8 +112,8 @@ class Mass:
             iterations=self.iterations, 
             # before
             handle_self_contact=True,
-            self_contact_radius=0.08,
-            self_contact_margin=0.08,
+            self_contact_radius=self.contact_radius,
+            self_contact_margin=self.contact_margin,
             spring_indices = self.spring_indices, 
             spring_rest_length = self.spring_rest_length, 
             spring_stiffness = self.spring_stiffness
@@ -122,17 +128,8 @@ class Mass:
         # 检查
         print('model.tri_indices', self.model.tri_indices.shape)
         print('model.edge_indices', self.model.edge_indices.shape)
-
-        # to access ForceElementAdjacencyInfo, you need to construct a VBDIntegrator (you dont need to understand what it is)
-        self.collision_detector = TriMeshCollisionDetector(self.model)
-        self.collision_detector.vertex_triangle_collision_detection(0.2)
-        self.collision_detector.edge_edge_collision_detection(0.2)
-
-        # bounds_init
-        self.gama_p = 0.4
-        self.bounds = wp.empty(shape=self.model.particle_count, dtype=float)
         
-    def Single_Newton_Method(self, Spring: Spring, fixed_num, ite_num, space_dim=3):
+    def Single_Newton_Method(self, Spring: Spring, fixed_num, ite_num, space_dim=3, time_step=0):
         
         # Newton Method (Implicit Euler)
         # 计时
@@ -155,6 +152,7 @@ class Mass:
             damping = self.damp, 
             num_iter = ite_num,
             tolerance = self.tolerance_newton,
+            time_step = time_step,
         )
 
         self.pos_cur = self.pos_warp.numpy()
@@ -205,3 +203,8 @@ class Mass:
         #print('pos_cur', self.pos_cur)
         #print('vel_cur', self.vel_cur)
 
+    def _init_cloth_data(self):
+        self.pos_warp = wp.array(self.pos_cur, dtype=wp.vec3)
+        self.pos_prev_warp = wp.array(self.pos_cur, dtype=wp.vec3)
+        self.vel_warp = wp.array(self.vel_cur, dtype=wp.vec3)
+        self.vel_prev_warp = wp.array(self.vel_cur, dtype=wp.vec3)

@@ -28,7 +28,7 @@ mass_m = 1
 stiff_k = 8000
 
 # 阻尼参数
-dump = 0.998
+dump = 0.999
 gravity = 9.8
 
 # simulation
