@@ -108,8 +108,9 @@ def main():
         frames_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "frames_polyscope")
         os.makedirs(frames_dir, exist_ok=True)
     # 6) 视角与包围盒：计算中心、半径、相机轨迹
-    all_min = np.min(cloth_data.reshape(-1, 3), axis=0)
-    all_max = np.max(cloth_data.reshape(-1, 3), axis=0)
+    frame0 = cloth_data[0]
+    all_min = np.min(frame0, axis=0)
+    all_max = np.max(frame0, axis=0)
     center = (all_min + all_max) / 2.0
     extent = all_max - all_min
     radius = float(np.linalg.norm(extent))
@@ -117,17 +118,15 @@ def main():
         radius = 1.0
     R = max(1.5, 1.2 * radius)
     height = R
-    # 7) 帧循环：更新顶点、绕圈拍摄、写出视频/帧
+    cam_pos = center + np.array([R, 0.0, height])
+    ps.look_at(cam_pos, center.tolist())
     for frame in range(N):
         verts = cloth_data[frame]
         if hasattr(mesh, "update_vertex_positions"):
             mesh.update_vertex_positions(verts)
         else:
             mesh.update_point_positions(verts)
-        theta = 2 * math.pi * frame / max(N, 1)
-        # 环绕相机位置（水平圆轨迹 + 固定高度）
-        cam_pos = center + np.array([R * math.cos(theta), R * math.sin(theta), height])
-        ps.look_at(cam_pos, center.tolist())
+        
         # 截屏到临时文件
         ps.screenshot(tmp_path)
         if writer is not None:
