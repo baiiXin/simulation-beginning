@@ -144,16 +144,17 @@ class Mass:
         #cloth_size = 9
         left_side = [ i for i in range(cloth_size)]
         right_side = [cloth_size * (cloth_size-1) + i for i in range(cloth_size)]
-        rot_point_indices = left_side + right_side
+        rot_point_indices = [0, 1, 2] #left_side + right_side
         # 初始化
-        self.fixed_idx = rot_point_indices.copy() #[0, 1, 2] #[360, 440] #[0, 4] #[10, 14] #[72, 80] #[0, 8] #[36, 44]
+        self.fixed_idx = rot_point_indices #[0, 1, 2] #[360, 440] #[0, 4] #[10, 14] #[72, 80] #[0, 8] #[36, 44]
         self._compute_fixed_information()
 
         # contact parameters
-        self.contact_radius=0.002
-        self.contact_margin=0.0035
-        self.contact_ke=1.0e6
-        self.contact_kd=2.0e-6
+        self.contact_radius=0.02
+        self.contact_margin=0.035
+        self.contact_ke=1.0e3
+        self.contact_ee=1.0e5
+
         # 初始值
         #self.pos_cur[:, [1, 2]] = self.pos_cur[:, [2, 1]]
         self.pos_prev = self.pos_cur.copy()
@@ -172,18 +173,15 @@ class Mass:
                     indices=self.ele.reshape(-1),
                     vel=wp.vec3(0.0, 0.0, 0.0),
                     density=0.2,
-                    tri_ke=1.0e3,
-                    tri_ka=1.0e3,
-                    tri_kd=2.0e-7,
-                    edge_ke=1e-3,
-                    edge_kd=1e-4,
+                    tri_ke=self.contact_ke,
+                    tri_kd=self.contact_ke,
+                    tri_ka=self.contact_ke,
+                    edge_ke=self.contact_ee,
+                    edge_kd=self.contact_ee,
         )
         self.builder.add_ground_plane()
         self.builder.color(include_bending=True)
         self.model = self.builder.finalize()
-        self.model.soft_contact_ke = 1.0e3
-        self.model.soft_contact_kd = 1.0e-4
-        self.model.soft_contact_mu = 0.2
 
         # model.gravity
         self.model.gravity = wp.vec3(0.0, 0.0, -self.gravity)
@@ -247,8 +245,8 @@ class Mass:
 
         self._init_rotation()
 
-    def time_step(self, Spring: Spring, fixed_num, ite_num, space_dim=3, time_step=0):
-        self._apply_rotation()
+    def time_step(self, Spring: Spring, fixed_num, ite_num, space_dim=3, time_step=0, rotation=False):
+        self._apply_rotation(rotation=rotation)
 
         Newton_step, times_ms, Error_dx_norm, Residual_norm, Energy_norm = self.Single_Newton_Method(Spring, fixed_num, ite_num, space_dim, time_step)
 
@@ -353,7 +351,10 @@ class Mass:
             ],
         )
 
-    def _apply_rotation(self):
+    def _apply_rotation(self, rotation=False):
+
+        if not rotation:
+            return
 
         wp.launch(
             kernel=apply_rotation,
