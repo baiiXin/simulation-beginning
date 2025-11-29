@@ -40,7 +40,7 @@ gravity = 0.0
 # simulation
 # 初始参数
 dt = 0.001
-N = int(os.environ.get("SIM_STEPS", "3"))
+N = int(1373)
 ite_num = 100
 tolerance_newton = 1e-6
 

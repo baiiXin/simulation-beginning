@@ -149,16 +149,20 @@ class Mass:
         self.fixed_idx = rot_point_indices #[0, 1, 2] #[360, 440] #[0, 4] #[10, 14] #[72, 80] #[0, 8] #[36, 44]
         self._compute_fixed_information()
 
+        # 缩放
+        self.scale=0.01
+
         # contact parameters
-        self.contact_radius=0.02
-        self.contact_margin=0.035
+        self.contact_radius=0.002
+        self.contact_margin=0.0035
         self.contact_ke=1.0e3
-        self.contact_ee=1.0e5
+        self.tri_ke=1.0e2
+        self.bend_ke=1.0e5
 
         # 初始值
         #self.pos_cur[:, [1, 2]] = self.pos_cur[:, [2, 1]]
-        self.pos_prev = self.pos_cur.copy()
-        self.vel_prev = self.vel_cur.copy()
+        self.pos_prev = self.pos_cur.copy()*self.scale
+        self.vel_prev = self.vel_cur.copy()*self.scale
 
         # warp_vbd_self_collison_init
         self.device = wp.get_device('cpu')
@@ -168,20 +172,23 @@ class Mass:
         self.builder.add_cloth_mesh(
                     pos=wp.vec3(0.0, 0.0, 0.0),
                     rot=wp.quat_identity(),
-                    scale=1.0,
+                    scale=self.scale,
                     vertices=self.pos_warp,
                     indices=self.ele.reshape(-1),
                     vel=wp.vec3(0.0, 0.0, 0.0),
                     density=0.2,
-                    tri_ke=self.contact_ke,
-                    tri_kd=self.contact_ke,
-                    tri_ka=self.contact_ke,
-                    edge_ke=self.contact_ee,
-                    edge_kd=self.contact_ee,
+                    tri_ke=self.tri_ke,
+                    tri_kd=self.tri_ke,
+                    tri_ka=self.tri_ke,
+                    edge_ke=self.bend_ke,
+                    edge_kd=self.bend_ke,
         )
         self.builder.add_ground_plane()
         self.builder.color(include_bending=True)
         self.model = self.builder.finalize()
+
+        # contact parameters
+        self.model.contact_ke = self.contact_ke
 
         # model.gravity
         self.model.gravity = wp.vec3(0.0, 0.0, -self.gravity)
@@ -220,7 +227,9 @@ class Mass:
         #self.state_0 = self.model.state()
         #self.state_1 = self.model.state()
         # transform
-        self.pos_warp = wp.array(self.pos_warp, dtype=wp.vec3)
+        self.pos_cur *= self.scale
+        self.vel_cur *= self.scale
+        self.pos_warp = wp.array(self.pos_cur, dtype=wp.vec3)
         self.pos_prev_warp = wp.array(self.pos_prev, dtype=wp.vec3)
         self.vel_warp = wp.array(self.vel_cur, dtype=wp.vec3)
         self.vel_prev_warp = wp.array(self.vel_prev, dtype=wp.vec3)

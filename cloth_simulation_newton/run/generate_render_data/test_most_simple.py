@@ -20,10 +20,10 @@ gravity = 9.8
 
 # simulation
 # 初始参数
-dt = 0.001
-N = 50
+dt = 0.003
+N = 2
 ite_num = 100
-tolerance_newton =  1e-6
+tolerance_newton =  1e-4
 
 # 仿真计算
 from cloth import Mass, Spring

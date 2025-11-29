@@ -161,7 +161,7 @@ def main():
     radius = float(np.linalg.norm(extent))
     if radius < 1e-6:
         radius = 1.0
-    R = max(1.5, 1.1 * radius)
+    R = 1.1 * radius
     az_deg = 150.0
     el_deg = 10.0
     az = math.radians(az_deg)
@@ -174,7 +174,7 @@ def main():
     output_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "output")
     os.makedirs(output_dir, exist_ok=True)
     output_path = os.path.join(output_dir, "three_triangles.mp4")
-    fps = 240
+    fps = 30
     frame_size = (1280, 720)
     tmp_path = os.path.join(output_dir, "frame_tmp.png")
     try:
