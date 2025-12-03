@@ -157,7 +157,7 @@ class Mass:
         self.contact_margin=0.03
         self.contact_ke=1.0e3
         self.tri_ke=1.0e3
-        self.bend_ke=1.0e-4
+        self.bend_ke=0.0001
 
         # 初始值
         #self.pos_cur[:, [1, 2]] = self.pos_cur[:, [2, 1]]
