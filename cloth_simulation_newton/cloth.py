@@ -2,7 +2,7 @@
 from platform import java_ver
 import warp as wp
 import numpy as np
-import trimesh
+#import trimesh
 import os
 
 # cpmpute bounds
@@ -144,7 +144,7 @@ class Mass:
         #cloth_size = 9
         left_side = [ i for i in range(cloth_size)]
         right_side = [cloth_size * (cloth_size-1) + i for i in range(cloth_size)]
-        rot_point_indices = [0, 1, 2] #left_side + right_side
+        rot_point_indices = left_side + right_side
         # 初始化
         self.fixed_idx = rot_point_indices #[0, 1, 2] #[360, 440] #[0, 4] #[10, 14] #[72, 80] #[0, 8] #[36, 44]
         self._compute_fixed_information()
@@ -153,11 +153,11 @@ class Mass:
         self.scale=1.0
 
         # contact parameters
-        self.contact_radius=0.08
-        self.contact_margin=0.08
+        self.contact_radius=0.02
+        self.contact_margin=0.03
         self.contact_ke=1.0e3
         self.tri_ke=1.0e3
-        self.bend_ke=1.0e5
+        self.bend_ke=1.0e-4
 
         # 初始值
         #self.pos_cur[:, [1, 2]] = self.pos_cur[:, [2, 1]]

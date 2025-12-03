@@ -15,12 +15,12 @@ from cloth import Mass, Spring
 # triangles: (Ne, 3) array of vertex indices
 # ===== 仿真参数 =====
 # 网格生成
-a = -20.0
-b = 20.0
-c = -20.0
-d = 20.0
-h1 = 5.0
-h2 = 5.0
+a = -2.0
+b = 2.0
+c = -2.0
+d = 2.0
+h1 = 0.5
+h2 = 0.5
 #fixed_num0 = (int((b-a)/h1)+1)*2 + 1
 #fixed_num1 = (int((b-a)/h1)+1)*3 + 1 
 #fixed_num = [fixed_num0, fixed_num1]
@@ -30,18 +30,18 @@ cloth_size = int((b-a)/h1+1)
 
 # 材料参数
 z=0.0
-mass_m = 1
-stiff_k = 80
+mass_m = 0.2
+stiff_k = 8000
 
 # 阻尼参数
-dump = 0.995
+dump = 0.999
 gravity = 0.0
 
 # simulation
 # 初始参数
-dt = 0.001
-N = 1373
-ite_num = 100
+dt = 0.003
+N = 445
+ite_num = 300
 tolerance_newton = 1e-4
 
 

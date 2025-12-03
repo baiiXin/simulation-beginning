@@ -109,6 +109,11 @@ def main():
     vbd_integrator = wp.sim.VBDIntegrator(model)
     collision_detector = TriMeshCollisionDetector(model)
     collision_detector.refit(verts_np)
+    # 碰撞信息
+    collision_detector.vertex_triangle_collision_detection(0.02)
+    collision_detector.edge_edge_collision_detection(0.02)
+    print('collision_info:\n', collision_detector.collision_info)
+    # 检测三角形三角形碰撞
     collision_detector.triangle_triangle_intersection_detection()
     print("model.tri_indices", model.tri_indices.shape)
     print("model.edge_indices", model.edge_indices.shape)
