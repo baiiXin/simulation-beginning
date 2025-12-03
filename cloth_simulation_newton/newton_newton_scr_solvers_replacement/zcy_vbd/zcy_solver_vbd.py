@@ -3559,7 +3559,7 @@ class zcy_SolverVBD(SolverBase):
             print(f'\n --- iter:{_iter} ---')
             print('cg_result:', result)
             '''
-            dx = spsolve(A.tocsr(), b.numpy().reshape(self.free_particle_num*3))
+            dx = spsolve(A.tocsr(), b.numpy().reshape(self.free_particle_num*3).astype(np.float64))
             dx = wp.array(dx.reshape(self.free_particle_num,3), dtype=wp.vec3)
 
             # update position

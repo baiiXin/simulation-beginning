@@ -21,20 +21,20 @@ gravity = 9.8
 # simulation
 # 初始参数
 dt = 0.003
-N = 1000
-ite_num = 300
+N = 2000
+ite_num = 50
 tolerance_newton =  1e-4
 
 # 仿真计算
 from cloth import Mass, Spring
 
-Mass_X = np.array([[0.0,0.0,0.0], [6.0,0.0,0.0], [3.0,6.0,0.0], [2.0,1.5,2.0], [3.0,1.0,1.5], [3.0,2.5,2.0], [4.0,1.5,2.0]])
+Mass_X = np.array([[0.0,0.0,10.0], [0.0,5.0,10.0], [5.0,0.0,10.0], [5.0,5.0,10.0]])
 
-Mass_V = np.array([[0.0,0.0,0.0], [0.0,0.0,0.0], [0.0,0.0,0.0], [0.0,0.0,0.0], [0.0,0.0,0.0], [0.0,0.0,0.0], [0.0,0.0,0.0]])
+Mass_V = np.array([[0.0,0.0,0.0], [0.0,0.0,0.0], [0.0,0.0,0.0], [0.0,0.0,0.0]])
 
-Mass_E = np.array([[0,1,2], [3,4,5], [4,5,6]])
+Mass_E = np.array([[0,1,2], [1,2,3]])
 
-Spring_ele = np.array([[0,1], [0,2], [1,2], [3,4], [3,5], [4,5], [4,6], [5,6]])
+Spring_ele = np.array([[0,1], [0,2], [1,2], [1,3], [2,3]])
 
 Spring_len = np.array([np.linalg.norm(Mass_X[Spring_ele[i,0]] - Mass_X[Spring_ele[i,1]]) for i in range(Spring_ele.shape[0])])
 

@@ -150,13 +150,13 @@ class Mass:
         self._compute_fixed_information()
 
         # 缩放
-        self.scale=0.01
+        self.scale=1.0
 
         # contact parameters
-        self.contact_radius=0.002
-        self.contact_margin=0.0035
+        self.contact_radius=0.08
+        self.contact_margin=0.08
         self.contact_ke=1.0e3
-        self.tri_ke=1.0e2
+        self.tri_ke=1.0e3
         self.bend_ke=1.0e5
 
         # 初始值

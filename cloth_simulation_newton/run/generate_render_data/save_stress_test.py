@@ -15,12 +15,12 @@ from cloth import Mass, Spring
 # triangles: (Ne, 3) array of vertex indices
 # ===== 仿真参数 =====
 # 网格生成
-a = -2.0
-b = 2.0
-c = -2.0
-d = 2.0
-h1 = 0.5
-h2 = 0.5
+a = -20.0
+b = 20.0
+c = -20.0
+d = 20.0
+h1 = 5.0
+h2 = 5.0
 #fixed_num0 = (int((b-a)/h1)+1)*2 + 1
 #fixed_num1 = (int((b-a)/h1)+1)*3 + 1 
 #fixed_num = [fixed_num0, fixed_num1]
@@ -40,9 +40,9 @@ gravity = 0.0
 # simulation
 # 初始参数
 dt = 0.001
-N = int(1373)
+N = 1373
 ite_num = 100
-tolerance_newton = 1e-6
+tolerance_newton = 1e-4
 
 
 # 仿真计算

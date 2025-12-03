@@ -115,7 +115,7 @@ def main():
     output_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "output")
     os.makedirs(output_dir, exist_ok=True)
     output_path = os.path.join(output_dir, "cloth_polyscope.mp4")
-    fps = 240
+    fps = 120
     frame_size = (1280, 720)
     tmp_path = os.path.join(output_dir, "frame_tmp.png")
     try:
@@ -139,8 +139,8 @@ def main():
     radius = float(np.linalg.norm(extent))
     if radius < 1e-6:
         radius = 1.0
-    R = max(1.5, 1.2 * radius)
-    height = R
+    R = 1.8 * radius
+    height = 0
     cam_pos = center + np.array([R, 0.0, height])
     ps.look_at(cam_pos, center.tolist())
     for frame in range(N):
