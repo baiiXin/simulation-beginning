@@ -40,8 +40,8 @@ gravity = 0.0
 # simulation
 # 初始参数
 dt = 0.003
-N = 470
-ite_num = 300
+N = 1200
+ite_num = 10
 tolerance_newton = 1e-4
 
 

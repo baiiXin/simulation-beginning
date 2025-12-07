@@ -1,0 +1,174 @@
+import warp as wp
+
+# ==========================================
+#  辅助函数：9x9 索引计算
+# ==========================================
+@wp.func
+def idx_9x9(r: int, c: int):
+    return r * 9 + c
+
+# ==========================================
+#  核心逻辑：PSD 过滤 (End-to-End)
+# ==========================================
+@wp.func
+def filter_hessian_9x9_device(
+    # 输入的 9 个 3x3 块
+    h_aa: wp.mat33, h_ab: wp.mat33, h_ac: wp.mat33,
+    h_ba: wp.mat33, h_bb: wp.mat33, h_bc: wp.mat33,
+    h_ca: wp.mat33, h_cb: wp.mat33, h_cc: wp.mat33,
+    # 临时显存指针
+    temp_buffer: wp.array(dtype=float),
+    tid: int # 当前三角形索引 (用于定位显存)
+):
+    # 1. 定位当前线程的显存偏移量
+    # 每个线程拥有 162 个 float (0~80: Matrix/Evals, 81~161: Vectors)
+    base_offset = tid * 162
+    offset_V = base_offset + 81
+    
+    # 2. 【组装】将 9 个 mat33 写入 9x9 显存 (行优先)
+    # Block Row 0 (a)
+    temp_buffer[base_offset + idx_9x9(0,0)] = h_aa[0,0]; temp_buffer[base_offset + idx_9x9(0,1)] = h_aa[0,1]; temp_buffer[base_offset + idx_9x9(0,2)] = h_aa[0,2]; temp_buffer[base_offset + idx_9x9(0,3)] = h_ab[0,0]; temp_buffer[base_offset + idx_9x9(0,4)] = h_ab[0,1]; temp_buffer[base_offset + idx_9x9(0,5)] = h_ab[0,2]; temp_buffer[base_offset + idx_9x9(0,6)] = h_ac[0,0]; temp_buffer[base_offset + idx_9x9(0,7)] = h_ac[0,1]; temp_buffer[base_offset + idx_9x9(0,8)] = h_ac[0,2];
+    temp_buffer[base_offset + idx_9x9(1,0)] = h_aa[1,0]; temp_buffer[base_offset + idx_9x9(1,1)] = h_aa[1,1]; temp_buffer[base_offset + idx_9x9(1,2)] = h_aa[1,2]; temp_buffer[base_offset + idx_9x9(1,3)] = h_ab[1,0]; temp_buffer[base_offset + idx_9x9(1,4)] = h_ab[1,1]; temp_buffer[base_offset + idx_9x9(1,5)] = h_ab[1,2]; temp_buffer[base_offset + idx_9x9(1,6)] = h_ac[1,0]; temp_buffer[base_offset + idx_9x9(1,7)] = h_ac[1,1]; temp_buffer[base_offset + idx_9x9(1,8)] = h_ac[1,2];
+    temp_buffer[base_offset + idx_9x9(2,0)] = h_aa[2,0]; temp_buffer[base_offset + idx_9x9(2,1)] = h_aa[2,1]; temp_buffer[base_offset + idx_9x9(2,2)] = h_aa[2,2]; temp_buffer[base_offset + idx_9x9(2,3)] = h_ab[2,0]; temp_buffer[base_offset + idx_9x9(2,4)] = h_ab[2,1]; temp_buffer[base_offset + idx_9x9(2,5)] = h_ab[2,2]; temp_buffer[base_offset + idx_9x9(2,6)] = h_ac[2,0]; temp_buffer[base_offset + idx_9x9(2,7)] = h_ac[2,1]; temp_buffer[base_offset + idx_9x9(2,8)] = h_ac[2,2];
+
+    # Block Row 1 (b)
+    temp_buffer[base_offset + idx_9x9(3,0)] = h_ba[0,0]; temp_buffer[base_offset + idx_9x9(3,1)] = h_ba[0,1]; temp_buffer[base_offset + idx_9x9(3,2)] = h_ba[0,2]; temp_buffer[base_offset + idx_9x9(3,3)] = h_bb[0,0]; temp_buffer[base_offset + idx_9x9(3,4)] = h_bb[0,1]; temp_buffer[base_offset + idx_9x9(3,5)] = h_bb[0,2]; temp_buffer[base_offset + idx_9x9(3,6)] = h_bc[0,0]; temp_buffer[base_offset + idx_9x9(3,7)] = h_bc[0,1]; temp_buffer[base_offset + idx_9x9(3,8)] = h_bc[0,2];
+    temp_buffer[base_offset + idx_9x9(4,0)] = h_ba[1,0]; temp_buffer[base_offset + idx_9x9(4,1)] = h_ba[1,1]; temp_buffer[base_offset + idx_9x9(4,2)] = h_ba[1,2]; temp_buffer[base_offset + idx_9x9(4,3)] = h_bb[1,0]; temp_buffer[base_offset + idx_9x9(4,4)] = h_bb[1,1]; temp_buffer[base_offset + idx_9x9(4,5)] = h_bb[1,2]; temp_buffer[base_offset + idx_9x9(4,6)] = h_bc[1,0]; temp_buffer[base_offset + idx_9x9(4,7)] = h_bc[1,1]; temp_buffer[base_offset + idx_9x9(4,8)] = h_bc[1,2];
+    temp_buffer[base_offset + idx_9x9(5,0)] = h_ba[2,0]; temp_buffer[base_offset + idx_9x9(5,1)] = h_ba[2,1]; temp_buffer[base_offset + idx_9x9(5,2)] = h_ba[2,2]; temp_buffer[base_offset + idx_9x9(5,3)] = h_bb[2,0]; temp_buffer[base_offset + idx_9x9(5,4)] = h_bb[2,1]; temp_buffer[base_offset + idx_9x9(5,5)] = h_bb[2,2]; temp_buffer[base_offset + idx_9x9(5,6)] = h_bc[2,0]; temp_buffer[base_offset + idx_9x9(5,7)] = h_bc[2,1]; temp_buffer[base_offset + idx_9x9(5,8)] = h_bc[2,2];
+
+    # Block Row 2 (c)
+    temp_buffer[base_offset + idx_9x9(6,0)] = h_ca[0,0]; temp_buffer[base_offset + idx_9x9(6,1)] = h_ca[0,1]; temp_buffer[base_offset + idx_9x9(6,2)] = h_ca[0,2]; temp_buffer[base_offset + idx_9x9(6,3)] = h_cb[0,0]; temp_buffer[base_offset + idx_9x9(6,4)] = h_cb[0,1]; temp_buffer[base_offset + idx_9x9(6,5)] = h_cb[0,2]; temp_buffer[base_offset + idx_9x9(6,6)] = h_cc[0,0]; temp_buffer[base_offset + idx_9x9(6,7)] = h_cc[0,1]; temp_buffer[base_offset + idx_9x9(6,8)] = h_cc[0,2];
+    temp_buffer[base_offset + idx_9x9(7,0)] = h_ca[1,0]; temp_buffer[base_offset + idx_9x9(7,1)] = h_ca[1,1]; temp_buffer[base_offset + idx_9x9(7,2)] = h_ca[1,2]; temp_buffer[base_offset + idx_9x9(7,3)] = h_cb[1,0]; temp_buffer[base_offset + idx_9x9(7,4)] = h_cb[1,1]; temp_buffer[base_offset + idx_9x9(7,5)] = h_cb[1,2]; temp_buffer[base_offset + idx_9x9(7,6)] = h_cc[1,0]; temp_buffer[base_offset + idx_9x9(7,7)] = h_cc[1,1]; temp_buffer[base_offset + idx_9x9(7,8)] = h_cc[1,2];
+    temp_buffer[base_offset + idx_9x9(8,0)] = h_ca[2,0]; temp_buffer[base_offset + idx_9x9(2,1)] = h_ca[2,1]; temp_buffer[base_offset + idx_9x9(8,2)] = h_ca[2,2]; temp_buffer[base_offset + idx_9x9(8,3)] = h_cb[2,0]; temp_buffer[base_offset + idx_9x9(8,4)] = h_cb[2,1]; temp_buffer[base_offset + idx_9x9(8,5)] = h_cb[2,2]; temp_buffer[base_offset + idx_9x9(8,6)] = h_cc[2,0]; temp_buffer[base_offset + idx_9x9(8,7)] = h_cc[2,1]; temp_buffer[base_offset + idx_9x9(8,8)] = h_cc[2,2];
+
+    # 3. 【求解】Jacobi 9x9
+    # 初始化 V 为单位阵
+    for i in range(9):
+        for j in range(9):
+            val = 1.0 if i == j else 0.0
+            temp_buffer[offset_V + idx_9x9(i, j)] = val
+
+    # 迭代 20 次
+    for _ in range(20):
+        for p in range(8):
+            for q in range(p + 1, 9):
+                idx_pq = base_offset + idx_9x9(p, q)
+                a_pq = temp_buffer[idx_pq]
+                if wp.abs(a_pq) < 1e-7: continue
+
+                idx_pp = base_offset + idx_9x9(p, p)
+                idx_qq = base_offset + idx_9x9(q, q)
+                a_pp = temp_buffer[idx_pp]
+                a_qq = temp_buffer[idx_qq]
+
+                tau = (a_qq - a_pp) / (2.0 * a_pq)
+                t = 0.0
+                if tau >= 0.0: t = 1.0 / (tau + wp.sqrt(1.0 + tau*tau))
+                else:          t = -1.0 / (-tau + wp.sqrt(1.0 + tau*tau))
+                c = 1.0 / wp.sqrt(1.0 + t*t)
+                s = t * c
+
+                # 旋转 A (Matrix)
+                # 更新对角线
+                temp_buffer[idx_pp] = c*c*a_pp + s*s*a_qq - 2.0*c*s*a_pq
+                temp_buffer[idx_qq] = s*s*a_pp + c*c*a_qq + 2.0*c*s*a_pq
+                temp_buffer[idx_pq] = 0.0
+                temp_buffer[base_offset + idx_9x9(q, p)] = 0.0
+
+                # 更新其他位置
+                for i in range(9):
+                    if i != p and i != q:
+                        idx_ip = base_offset + idx_9x9(i, p)
+                        idx_iq = base_offset + idx_9x9(i, q)
+                        a_ip = temp_buffer[idx_ip]
+                        a_iq = temp_buffer[idx_iq]
+                        a_ip_n = c * a_ip - s * a_iq
+                        a_iq_n = s * a_ip + c * a_iq
+                        temp_buffer[idx_ip] = a_ip_n
+                        temp_buffer[base_offset + idx_9x9(p, i)] = a_ip_n
+                        temp_buffer[idx_iq] = a_iq_n
+                        temp_buffer[base_offset + idx_9x9(q, i)] = a_iq_n
+                
+                # 旋转 V (Eigenvectors)
+                for i in range(9):
+                    idx_ip = offset_V + idx_9x9(i, p)
+                    idx_iq = offset_V + idx_9x9(i, q)
+                    v_ip = temp_buffer[idx_ip]
+                    v_iq = temp_buffer[idx_iq]
+                    temp_buffer[idx_ip] = c * v_ip - s * v_iq
+                    temp_buffer[idx_iq] = s * v_ip + c * v_iq
+
+    # 4. 【过滤】特征值 Clamp 并重构 (H_new = V * max(D,0) * V^T)
+    # 我们直接把结果写回到 9 个 mat33 返回
+    # 为了防止覆盖，我们从 temp_buffer 读取 Lambda 和 V
+
+    # 我们需要一个临时变量来累加，不能直接写回 temp_buffer (因为那是 V 和 Lambda)
+    # 幸好我们只需要输出 9 个 mat33
+    
+    # 构造输出变量
+    out_aa = wp.mat33(0.0); out_ab = wp.mat33(0.0); out_ac = wp.mat33(0.0)
+    out_ba = wp.mat33(0.0); out_bb = wp.mat33(0.0); out_bc = wp.mat33(0.0)
+    out_ca = wp.mat33(0.0); out_cb = wp.mat33(0.0); out_cc = wp.mat33(0.0)
+    
+    # 遍历 9x9 的每个元素 (r, c)
+    for r in range(9):
+        for c in range(r, 9): # 只算上三角
+            sum_val = 0.0
+            for k in range(9):
+                # Lambda 在 Matrix 部分的对角线上
+                lam = temp_buffer[base_offset + idx_9x9(k, k)]
+                lam = wp.max(lam, 0.0) # <--- Eigen Filtering
+                
+                v_rk = temp_buffer[offset_V + idx_9x9(r, k)]
+                v_ck = temp_buffer[offset_V + idx_9x9(c, k)]
+                
+                sum_val += v_rk * lam * v_ck
+            
+            # 将 sum_val 填入对应的 mat33
+            # 利用 if-else 分发 (Warp 不支持 mat33 数组索引，只能硬编码)
+            # 行块 r//3, 列块 c//3
+            
+            # 这是一个对称矩阵，所以我们算出 sum_val 后，同时赋值 (r,c) 和 (c,r)
+            
+            # --- 赋值逻辑 (Macro-like unrolling) ---
+            # 这种写法虽然长，但在 GPU 上完全展开，没有分支开销
+            br = r // 3
+            bc = c // 3
+            lr = r % 3
+            lc = c % 3
+            
+            # 写入 (r, c)
+            if br == 0:
+                if bc == 0: out_aa[lr, lc] = sum_val
+                elif bc == 1: out_ab[lr, lc] = sum_val
+                else:         out_ac[lr, lc] = sum_val
+            elif br == 1:
+                if bc == 0: out_ba[lr, lc] = sum_val # 不会走到这，因为只算上三角
+                elif bc == 1: out_bb[lr, lc] = sum_val
+                else:         out_bc[lr, lc] = sum_val
+            else: # br == 2
+                if bc == 0: out_ca[lr, lc] = sum_val 
+                elif bc == 1: out_cb[lr, lc] = sum_val
+                else:         out_cc[lr, lc] = sum_val
+            
+            # 写入对称位置 (c, r)
+            if r != c:
+                br = c // 3
+                bc = r // 3
+                lr = c % 3
+                lc = r % 3
+                
+                if br == 0:
+                    if bc == 0: out_aa[lr, lc] = sum_val
+                    elif bc == 1: out_ab[lr, lc] = sum_val # 不会走到这
+                    else:         out_ac[lr, lc] = sum_val # 不会走到这
+                elif br == 1:
+                    if bc == 0: out_ba[lr, lc] = sum_val # 这里会用到
+                    elif bc == 1: out_bb[lr, lc] = sum_val
+                    else:         out_bc[lr, lc] = sum_val
+                else: # br == 2
+                    if bc == 0: out_ca[lr, lc] = sum_val # 这里会用到
+                    elif bc == 1: out_cb[lr, lc] = sum_val # 这里会用到
+                    else:         out_cc[lr, lc] = sum_val
+
+    return out_aa, out_ab, out_ac, out_ba, out_bb, out_bc, out_ca, out_cb, out_cc

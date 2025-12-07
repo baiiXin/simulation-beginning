@@ -139,8 +139,8 @@ def main():
     radius = float(np.linalg.norm(extent))
     if radius < 1e-6:
         radius = 1.0
-    R = 1.8 * radius
-    height = 0.65 * R
+    R = 1.2 * radius
+    height = 0.6 * R
     cam_pos = center + np.array([R, 0.0, height])
     ps.look_at(cam_pos, center.tolist())
     for frame in range(N):
@@ -175,7 +175,7 @@ def main():
     if args.show:
         try:
             import polyscope as ps
-            ps.show()
+            # ps.show()
         except Exception:
             pass
 
