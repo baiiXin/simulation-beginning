@@ -2,12 +2,12 @@
 import subprocess
 
 PYTHON_BIN = "/data/zhoucy/anaconda3/envs/sim/bin/python"
-SCRIPT_PATH = "/data/zhoucy/sim/cloth_simulation_newton/run/render/render_three_triangles.py"
+SCRIPT_PATH = "/data/zhoucy/sim/cloth_simulation_newton/run/render/test_polyscope.py"
 
 cmd = [
     "xvfb-run",
     "-a",
-    "-s", "-screen 0 1920x1080x24",   # ← 必须分开写
+    "-s", "-screen 0 3840x2160x24",   # ← 必须分开写
     PYTHON_BIN,
     SCRIPT_PATH
 ]

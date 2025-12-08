@@ -34,14 +34,14 @@ mass_m = 0.2
 stiff_k = 8000
 
 # 阻尼参数
-dump = 0.995
+dump = 0.998
 gravity = 0.0
 
 # simulation
 # 初始参数
 dt = 0.003
-N = 1200
-ite_num = 10
+N = 1600
+ite_num = 30
 tolerance_newton = 1e-4
 
 
