@@ -43,6 +43,10 @@ def load_cloth_data_and_topy_for(data_file):
     topy_file = os.path.join(input_dir, f"cloth_topy_{suffix}.npy")
     data = np.load(data_file)
     topy = np.load(topy_file) if os.path.exists(topy_file) else None
+    # 打印加载信息
+    print(f"loaded {data_file} with shape {data.shape}")
+    if topy is not None:
+        print(f"loaded {topy_file} with shape {topy.shape}")
     return data, topy
 
 # 根据顶点数 nm 构造 n×n 网格的两三角剖分
@@ -115,7 +119,7 @@ def main():
     output_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "output")
     os.makedirs(output_dir, exist_ok=True)
     output_path = os.path.join(output_dir, "cloth_polyscope.mp4")
-    fps = 120
+    fps = 240
     frame_size = (1280, 720)
     tmp_path = os.path.join(output_dir, "frame_tmp.png")
     try:
@@ -140,7 +144,7 @@ def main():
     if radius < 1e-6:
         radius = 1.0
     R = 1.2 * radius
-    height = 0.6 * R
+    height = 0.8 * R
     cam_pos = center + np.array([R, 0.0, height])
     ps.look_at(cam_pos, center.tolist())
     for frame in range(N):

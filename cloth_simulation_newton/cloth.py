@@ -155,9 +155,10 @@ class Mass:
         # contact parameters
         self.contact_radius=0.02
         self.contact_margin=0.03
-        self.contact_ke=1.0e3
-        self.tri_ke=1.0e3
-        self.bend_ke=0.001
+        #self.contact_ke=1.0e3
+        #self.contact_kd=1.0e-4
+        #self.tri_ke=1.0e3
+        #self.bend_ke=0.001
 
         # 初始值
         #self.pos_cur[:, [1, 2]] = self.pos_cur[:, [2, 1]]
@@ -177,21 +178,24 @@ class Mass:
                     indices=self.ele.reshape(-1),
                     vel=wp.vec3(0.0, 0.0, 0.0),
                     density=0.2,
-                    tri_ke=self.tri_ke,
-                    tri_kd=self.tri_ke,
-                    tri_ka=self.tri_ke,
-                    edge_ke=self.bend_ke,
-                    edge_kd=self.bend_ke,
+                    tri_ke=1.0e3,
+                    tri_ka=1.0e3,
+                    tri_kd=2.0e-7,
+                    edge_ke=1e-3,
+                    edge_kd=1e-4,
         )
         self.builder.add_ground_plane()
         self.builder.color(include_bending=True)
         self.model = self.builder.finalize()
 
         # contact parameters
-        self.model.contact_ke = self.contact_ke
+        self.model.soft_contact_ke = 1.0e3
+        self.model.soft_contact_kd = 1.0e-4
+        self.model.soft_contact_mu = 0.2
 
         # model.gravity
         self.model.gravity = wp.vec3(0.0, 0.0, -self.gravity)
+        self.model.spring_damping = 1.0e-4
         print('self.model.g', self.model.gravity)
 
         # spring information
@@ -255,6 +259,10 @@ class Mass:
         self._init_rotation()
 
     def time_step(self, Spring: Spring, fixed_num, ite_num, space_dim=3, time_step=0, rotation=False):
+        T = self.dt * time_step
+        if T > 3.0:
+            rotation = False
+            
         self._apply_rotation(rotation=rotation)
 
         Newton_step, times_ms, Error_dx_norm, Residual_norm, Energy_norm = self.Single_Newton_Method(Spring, fixed_num, ite_num, space_dim, time_step)
