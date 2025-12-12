@@ -35,7 +35,7 @@ def main():
     stiff_k = 8000
 
     # 阻尼参数
-    damp = 0.998
+    damp = 0.99
     gravity = 0.0
 
     # simulation
@@ -45,17 +45,22 @@ def main():
     ite_num = 10
     tolerance_newton = 1e-4
 
-    # DeBUG 
+     # DeBUG 
     DeBUG = {
-        'DeBUG': False,
+        'DeBUG': True,
+        'record_hessian': False,
+        'max_information': True,
+        'max_warning': False,
         'Spring': True,
         'Bending': True,
         'Contact': True,
         'Contact_EE': True,
         'Contact_VT': True,
+        'Inertia_Hessian': True,
         'Eigen': True,
-        'line_search_max_step': 10,
-        'Damping': 1.0
+        'line_search_max_step': 15,
+        'Damping': 0.0,
+        'spring_type': 0
     }
 
     # 仿真计算
@@ -110,12 +115,13 @@ def main():
         cloth_data.append(myMass.pos_cur.astype(np.float64).copy())
         cloth_vel.append(myMass.vel_cur.astype(np.float64).copy())
 
-
-    # =================== 保存最后一帧 ===================
-    frame = -1
-    verts = cloth_data[frame].astype(np.float64, copy=False)
-    vel = cloth_vel[frame].astype(np.float64, copy=False)
-
+        if i % 100 == 0:
+            # =================== 保存 verts ===================
+            save_dir = os.path.join(os.path.dirname(__file__), "../render/input")
+            os.makedirs(save_dir, exist_ok=True)
+            run_id = os.path.splitext(os.path.basename(__file__))[0].replace("save_", "")
+            path_data = os.path.join(save_dir, f"cloth_data_{run_id}.npy")
+            np.save(path_data, np.array(cloth_data))
 
     # =================== 保存 verts ===================
     save_dir = os.path.join(os.path.dirname(__file__), "../render/input")
