@@ -1,5 +1,4 @@
 ### truncate the displacement
-from platform import java_ver
 import warp as wp
 import numpy as np
 #import trimesh
@@ -7,14 +6,8 @@ import os
 
 # cpmpute bounds
 import newton
-from newton._src.solvers.zcy_vbd.tri_mesh_collision import TriMeshCollisionDetector
 from newton._src.solvers.zcy_vbd.zcy_solver_vbd import zcy_SolverVBD
 
-### cloth sim
-from scipy.sparse import csr_matrix
-from scipy.sparse.linalg import spsolve
-from scipy.sparse.linalg import cg, bicgstab
-import time
 
 @wp.kernel
 def initialize_rotation(
@@ -115,7 +108,7 @@ class Mass:
                  ele=None, mass=None, 
                  force=None, Hessian=None, Mass_k=None,
                  damp=None, gravity=None, Spring=Spring, dt=None, 
-                 tolerance_newton=None, cloth_size=None):
+                 tolerance_newton=None, cloth_size=0, DeBUG=None):
         self.num = num # 质点数量；1
         self.ele = ele # 三角元；[[0, 1, 2], [1, 2, 3], [2, 3, 4]]
         self.pos_cur = pos_cur # 质点位置；[[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [2.0, 0.0, 0.0], [3.0, 0.0, 0.0], [4.0, 0.0, 0.0]]
@@ -135,6 +128,7 @@ class Mass:
         self.space_dim = 3
         self.load = False
         self.cloth_size = cloth_size
+        self.DeBUG = DeBUG
 
         # load vertexs
         self._load_cloth_data(self.load)
@@ -146,7 +140,7 @@ class Mass:
         right_side = [cloth_size * (cloth_size-1) + i for i in range(cloth_size)]
         rot_point_indices = left_side + right_side
         # 初始化
-        self.fixed_idx = rot_point_indices #[0, 1, 2] #[360, 440] #[0, 4] #[10, 14] #[72, 80] #[0, 8] #[36, 44]
+        self.fixed_idx = [0, 1, 2] #[0, 1, 2] #[360, 440] #[0, 4] #[10, 14] #[72, 80] #[0, 8] #[36, 44]
         self._compute_fixed_information()
 
         # 缩放
@@ -155,10 +149,6 @@ class Mass:
         # contact parameters
         self.contact_radius=0.02
         self.contact_margin=0.03
-        #self.contact_ke=1.0e3
-        #self.contact_kd=1.0e-4
-        #self.tri_ke=1.0e3
-        #self.bend_ke=0.001
 
         # 初始值
         #self.pos_cur[:, [1, 2]] = self.pos_cur[:, [2, 1]]
@@ -180,9 +170,9 @@ class Mass:
                     density=0.2,
                     tri_ke=1.0e3,
                     tri_ka=1.0e3,
-                    tri_kd=2.0e-7,
+                    tri_kd=2.0e-2 * self.DeBUG['Damping'],
                     edge_ke=1e-3,
-                    edge_kd=1e-4,
+                    edge_kd=1e-2 * self.DeBUG['Damping'],
         )
         self.builder.add_ground_plane()
         self.builder.color(include_bending=True)
@@ -190,12 +180,12 @@ class Mass:
 
         # contact parameters
         self.model.soft_contact_ke = 1.0e3
-        self.model.soft_contact_kd = 1.0e-4
+        self.model.soft_contact_kd = 1.0e-2 * self.DeBUG['Damping']
         self.model.soft_contact_mu = 0.2
 
         # model.gravity
         self.model.gravity = wp.vec3(0.0, 0.0, -self.gravity)
-        self.model.spring_damping = 1.0e-4
+        self.model.spring_damping = 1.0e-2 * self.DeBUG['Damping']
         print('self.model.g', self.model.gravity)
 
         # spring information
@@ -209,6 +199,8 @@ class Mass:
 
         self.vbd_integrator = zcy_SolverVBD(
                     model=self.model,
+                    # DeBUG
+                    DeBUG = self.DeBUG,
                     # self parameters
                     dt = self.dt,
                     mass = self.mass,

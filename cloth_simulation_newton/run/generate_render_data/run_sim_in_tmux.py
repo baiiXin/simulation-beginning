@@ -26,6 +26,6 @@ if __name__ == "__main__":
     session = "mysim"
 
     # 你要执行的命令（按需修改）
-    command = "/data/zhoucy/anaconda3/envs/sim/bin/python /data/zhoucy/sim/cloth_simulation_newton/run/generate_render_data/save_stress_test.py"
+    command = "/data/zhoucy/sim/cloth_simulation_newton/run/generate_render_data/save_unit_test.py"
 
     run_in_tmux(session, command)

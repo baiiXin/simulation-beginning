@@ -25,6 +25,19 @@ N = 1500
 ite_num = 100
 tolerance_newton = 1e-4
 
+# DeBUG 
+DeBUG = {
+    'DeBUG': True,
+    'Spring': True,
+    'Bending': False,
+    'Contact': True,
+    'Contact_EE': True,
+    'Contact_VT': True,
+    'Eigen': False,
+    'line_search_max_step': 1,
+    'Damping': 0.0
+}
+
 # 仿真计算
 from cloth import Mass, Spring
 
@@ -59,7 +72,8 @@ myMass = Mass(
     gravity=gravity,
     Spring=mySpring,
     dt=dt,
-    tolerance_newton=tolerance_newton
+    tolerance_newton=tolerance_newton,
+    DeBUG=DeBUG,
 )
 
 # 储存结果

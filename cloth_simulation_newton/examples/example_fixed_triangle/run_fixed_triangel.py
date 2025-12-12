@@ -15,7 +15,7 @@ mass_m = 1
 stiff_k = 8000
 
 # 阻尼参数
-dump = 1.00
+damp = 1.00
 gravity = 9.8
 
 # simulation
@@ -35,6 +35,7 @@ DeBUG = {
     'Contact_VT': False,
     'Eigen': False,
     'line_search_max_step': 1,
+    'Damping': 0.0
 }
 
 
@@ -68,7 +69,7 @@ myMass = Mass(
     pos_prev=Mass_X.copy(),
     vel_prev=Mass_V.copy(),
     mass=mass_m,
-    damp=dump,
+    damp=damp,
     gravity=gravity,
     Spring=mySpring,
     dt=dt,

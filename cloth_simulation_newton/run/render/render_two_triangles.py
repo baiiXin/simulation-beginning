@@ -102,8 +102,8 @@ def main():
     radius = float(np.linalg.norm(extent))
     if radius < 1e-6:
         radius = 1.0
-    R = max(1.5, 1.2 * radius)
-    cam_pos = center + np.array([R, 0.0, 0.0])
+    R = 1.1 * radius
+    cam_pos = center + np.array([0.6*R, 0.0, 0.6*R])
     ps.look_at(cam_pos, center.tolist())
     output_dir = os.path.join(script_dir, "output")
     os.makedirs(output_dir, exist_ok=True)

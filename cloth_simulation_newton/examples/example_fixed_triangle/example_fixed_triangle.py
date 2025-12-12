@@ -107,7 +107,7 @@ class Mass:
                  ele=None, mass=None, 
                  force=None, Hessian=None, Mass_k=None,
                  damp=None, gravity=None, Spring=Spring, dt=None, 
-                 tolerance_newton=None, cloth_size=None, DeBUG=None):
+                 tolerance_newton=None, cloth_size=0, DeBUG=None):
         self.num = num # 质点数量；1
         self.ele = ele # 三角元；[[0, 1, 2], [1, 2, 3], [2, 3, 4]]
         self.pos_cur = pos_cur # 质点位置；[[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [2.0, 0.0, 0.0], [3.0, 0.0, 0.0], [4.0, 0.0, 0.0]]
@@ -148,9 +148,6 @@ class Mass:
         # contact parameters
         self.contact_radius=0.02
         self.contact_margin=0.03
-        self.contact_ke=1.0e3
-        self.tri_ke=1.0e3
-        self.bend_ke=0.001
 
         # 初始值
         #self.pos_cur[:, [1, 2]] = self.pos_cur[:, [2, 1]]
@@ -170,21 +167,24 @@ class Mass:
                     indices=self.ele.reshape(-1),
                     vel=wp.vec3(0.0, 0.0, 0.0),
                     density=0.2,
-                    tri_ke=self.tri_ke,
-                    tri_kd=self.tri_ke,
-                    tri_ka=self.tri_ke,
-                    edge_ke=self.bend_ke,
-                    edge_kd=self.bend_ke,
+                    tri_ke=1.0e3,
+                    tri_ka=1.0e3,
+                    tri_kd=2.0e-7 * self.DeBUG['Damping'],
+                    edge_ke=1e-3,
+                    edge_kd=1e-4 * self.DeBUG['Damping'],
         )
         self.builder.add_ground_plane()
         self.builder.color(include_bending=True)
         self.model = self.builder.finalize()
 
         # contact parameters
-        self.model.contact_ke = self.contact_ke
+        self.model.soft_contact_ke = 1.0e3
+        self.model.soft_contact_kd = 1.0e-4 * self.DeBUG['Damping']
+        self.model.soft_contact_mu = 0.2
 
         # model.gravity
         self.model.gravity = wp.vec3(0.0, 0.0, -self.gravity)
+        self.model.spring_damping = 1.0e-4 * self.DeBUG['Damping']
         print('self.model.g', self.model.gravity)
 
         # spring information

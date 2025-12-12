@@ -2,7 +2,7 @@
 import subprocess
 
 PYTHON_BIN = "/data/zhoucy/anaconda3/envs/sim/bin/python"
-SCRIPT_PATH = "/data/zhoucy/sim/cloth_simulation_newton/run/render/test_polyscope.py"
+SCRIPT_PATH = "/data/zhoucy/sim/cloth_simulation_newton/run/render/render_two_triangles.py"
 
 cmd = [
     "xvfb-run",
