@@ -35,17 +35,17 @@ def main():
     stiff_k = 8000
 
     # 阻尼参数
-    damp = 0.99
+    damp = 1.0
     gravity = 0.0
 
     # simulation
     # 初始参数
     dt = 0.003
-    N = 5
-    ite_num = 10
+    N = 2000
+    ite_num = 30
     tolerance_newton = 1e-4
 
-     # DeBUG 
+    # DeBUG 
     DeBUG = {
         'DeBUG': True,
         'record_hessian': False,
@@ -60,7 +60,8 @@ def main():
         'Eigen': True,
         'line_search_max_step': 15,
         'Damping': 0.0,
-        'spring_type': 0
+        'spring_type': 0,
+        'record_name': 'cloth_twist_70x70'
     }
 
     # 仿真计算
