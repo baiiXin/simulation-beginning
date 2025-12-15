@@ -11,7 +11,7 @@ from newton._src.solvers.zcy_vbd.zcy_solver_vbd import zcy_SolverVBD
 class Cloth:
     def __init__(self):
         # 读取文件
-        assets_path = '/data/zhoucy/sim/cloth_simulation_newton/examples/assets/cloth_fall_sphere_1_unit.npz'
+        assets_path = '/data/zhoucy/sim/cloth_simulation_newton/examples/assets/cloth_fall_sphere.npz'
         data = np.load(assets_path, allow_pickle=True)
         mesh = data["mesh"].item()
 
@@ -46,7 +46,7 @@ class Cloth:
             'Damping': 0.0,
             'spring_type': 0,
             'forward_type': 0,
-            'record_name': 'cloth_fall_sphere_test'
+            'record_name': 'cloth_fall_sphere'
         }
         # fixed points
         self.fixed_idx = mesh["fixed_index"]
