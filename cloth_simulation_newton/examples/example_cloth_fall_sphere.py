@@ -8,53 +8,48 @@ import os
 import newton
 from newton._src.solvers.zcy_vbd.zcy_solver_vbd import zcy_SolverVBD
 
+class Cloth:
+    def __init__(self):
+        # 读取文件
+        assets_path = '/data/zhoucy/sim/cloth_simulation_newton/examples/assets/cloth_fall_sphere_1_unit.npz'
+        data = np.load(assets_path, allow_pickle=True)
+        mesh = data["mesh"].item()
 
-class Spring:
-    def __init__(self, num=None, ele=None, stiff_k=None, rest_len=None):
-        self.num = num # 弹簧数量；1
-        self.ele = ele # 弹簧连接的质点编号；[[0, 1], [1, 2], [2, 3], [3, 4]]
-        self.rest_len = rest_len # 弹簧的初始长度；[1.0, 1.0, 1.0, 1.0]
-        self.stiff_k = stiff_k  # 弹簧的刚度；1
+        # 初始化 位置和速度
+        self.pos_cur = mesh["vertices_all"].astype(np.float64, copy=False)
+        self.vel_cur = np.zeros_like(self.pos_cur)
+        self.num = self.pos_cur.shape[0] 
+        self.ele = mesh["triangles_all"].astype(np.int32, copy=False)
 
-class Mass:
-    def __init__(self, num=int, 
-                 pos_cur=None, vel_cur=None, pos_prev=None, vel_prev=None,
-                 ele=None, mass=None, 
-                 force=None, Hessian=None, Mass_k=None,
-                 damp=None, gravity=None, Spring=Spring, dt=None, 
-                 tolerance_newton=None, cloth_size=0, DeBUG=None):
-        self.num = num # 质点数量；1
-        self.ele = ele # 三角元；[[0, 1, 2], [1, 2, 3], [2, 3, 4]]
-        self.pos_cur = pos_cur # 质点位置；[[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [2.0, 0.0, 0.0], [3.0, 0.0, 0.0], [4.0, 0.0, 0.0]]
-        self.vel_cur = vel_cur # 质点速度；[[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]]
-        self.pos_prev = pos_prev # 预测质点位置
-        self.vel_prev = vel_prev # 预测质点速度
-        self.force = force # 力向量--牛顿迭代--线性方程组--b
-        self.Hessian = Hessian # 矩阵--牛顿迭代--线性方程组--A
-        self.mass = mass # 质点质量；1
-        self.damp = damp # 阻尼系数；1
-        self.gravity = gravity # 重力加速度；9.8
-        self.Spring = Spring # 弹簧
-        self.dt = dt # 时间步长
-        self.tolerance_newton = tolerance_newton # 牛顿迭代的容差
-        self.iterations = 10
-        # self.fixed_num = 9
-        self.space_dim = 3
-        self.load = False
-        self.cloth_size = cloth_size
-        self.DeBUG = DeBUG
+        # 初始化 质量和阻尼
+        self.mass = 0.0083
+        self.damp = 1.0
+        self.gravity = 9.8
+        self.dt = 0.003 
+        self.All_Time_Step = 1
 
-        # load vertexs
-        self._load_cloth_data(self.load)
-
+        self.tolerance_newton = 1e-4
+        self.iterations = 1
+        self.DeBUG =  {
+            'DeBUG': True,
+            'record_hessian': False,
+            'max_information': True,
+            'max_warning': False,
+            'Spring': True,
+            'Bending': True,
+            'Contact': True,
+            'Contact_EE': True,
+            'Contact_VT': True,
+            'Inertia_Hessian': True,
+            'Eigen': True,
+            'line_search_max_step': 1,
+            'Damping': 0.0,
+            'spring_type': 0,
+            'forward_type': 0,
+            'record_name': 'cloth_fall_sphere_test'
+        }
         # fixed points
-        # rotation fixed points
-        #cloth_size = 9
-        left_side = [ i for i in range(cloth_size)]
-        right_side = [cloth_size * (cloth_size-1) + i for i in range(cloth_size)]
-        rot_point_indices = left_side + right_side
-        # 初始化
-        self.fixed_idx = rot_point_indices #[0, 1, 2] #[360, 440] #[0, 4] #[10, 14] #[72, 80] #[0, 8] #[36, 44]
+        self.fixed_idx = mesh["fixed_index"]
         self._compute_fixed_information()
 
         # 缩放
@@ -65,7 +60,6 @@ class Mass:
         self.contact_margin=0.05
 
         # 初始值
-        #self.pos_cur[:, [1, 2]] = self.pos_cur[:, [2, 1]]
         self.pos_prev = self.pos_cur.copy()*self.scale
         self.vel_prev = self.vel_cur.copy()*self.scale
 
@@ -99,7 +93,7 @@ class Mass:
         self.model = self.builder.finalize()
 
         # contact parameters
-        self.model.soft_contact_ke = 1.0e3
+        self.model.soft_contact_ke = 1.0e2
         self.model.soft_contact_kd = 1.0e-2 * self.DeBUG['Damping']
         self.model.soft_contact_mu = 0.2
 
@@ -109,13 +103,9 @@ class Mass:
         print('self.model.g', self.model.gravity)
 
         # spring information
-        self.spring_indices = [x for row in self.Spring.ele for x in row]
-        self.spring_indices = wp.array(self.spring_indices, dtype=wp.int32)
-        self.spring_rest_length = wp.array(self.Spring.rest_len, dtype=wp.float32)
-        self.spring_stiffness = [self.Spring.stiff_k for i in range(len(self.spring_rest_length))]
-        self.spring_stiffness = wp.array(self.spring_stiffness, dtype=wp.float32)
-
-        print('spring_indices', type(self.spring_indices))
+        self.spring_indices =  wp.zeros(10, dtype=wp.int32, device=self.device)
+        self.spring_rest_length = wp.zeros(10, dtype=wp.float32, device=self.device)
+        self.spring_stiffness = wp.zeros(10, dtype=wp.float32, device=self.device)
 
         self.vbd_integrator = zcy_SolverVBD(
                     model=self.model,
@@ -139,9 +129,6 @@ class Mass:
                     spring_stiffness = self.spring_stiffness
         )
 
-        # state
-        #self.state_0 = self.model.state()
-        #self.state_1 = self.model.state()
         # transform
         self.pos_cur *= self.scale
         self.vel_cur *= self.scale
@@ -153,49 +140,11 @@ class Mass:
         # 检查
         print('model.tri_indices', self.model.tri_indices.shape)
         print('model.edge_indices', self.model.edge_indices.shape)
-
-        # rotation
-        rot_axes = [[0, 1, 0]] * len(right_side) + [[0, -1, 0]] * len(left_side)
-
-        self.rot_point_indices = wp.array(rot_point_indices, dtype=int)
-        self.t = wp.zeros((1,), dtype=float)
-        self.rot_centers = wp.zeros(len(rot_point_indices), dtype=wp.vec3)
-        self.rot_axes = wp.array(rot_axes, dtype=wp.vec3)
-
-        self.roots = wp.zeros_like(self.rot_centers)
-        self.roots_to_ps = wp.zeros_like(self.rot_centers)
-
-        self.rot_angular_velocity = np.pi / 3
-        self.rot_end_time = 10
-
-        self._init_rotation()
-
-    def time_step(self, Spring: Spring, fixed_num, ite_num, space_dim=3, time_step=0, rotation=False):
-        T = self.dt * time_step
-        if T > 3.0:
-            rotation = False
-            
-        self._apply_rotation(rotation=rotation)
-
-        Newton_step, times_ms, Error_dx_norm, Residual_norm, Energy_norm = self.Single_Newton_Method(Spring, fixed_num, ite_num, space_dim, time_step)
-
-        return Newton_step, times_ms, Error_dx_norm, Residual_norm, Energy_norm
         
-    def Single_Newton_Method(self, Spring: Spring, fixed_num, ite_num, space_dim=3, time_step=0):
+    def Single_Newton_Method(self, time_step=0):
         
         # Newton Method (Implicit Euler)
-        # 计时
-        times_ms = []
-        # 残差曲线
-        Newton_step = []
-        Error_dx_norm = []
-        Residual_norm = []
-        Energy_norm = []
-
         # iteration
-        print('\n---cloth---', self.iterations)
-
-        # step
         self.vbd_integrator.zcy_simulate_one_step(
             pos_warp = self.pos_warp,
             pos_prev_warp = self.pos_prev_warp,
@@ -203,7 +152,7 @@ class Mass:
             dt = self.dt, 
             mass = self.mass, 
             damping = self.damp, 
-            num_iter = ite_num,
+            num_iter = self.iterations,
             tolerance = self.tolerance_newton,
             time_step = time_step,
         )
@@ -212,8 +161,6 @@ class Mass:
         self.vel_cur = self.vel_warp.numpy()
 
         self.pos_warp, self.pos_prev_warp = self.pos_prev_warp, self.pos_warp
-
-        return Newton_step, times_ms, Error_dx_norm, Residual_norm, Energy_norm
 
     def _compute_fixed_information(self):
         self.fixed_particle_num = len(self.fixed_idx)
@@ -232,74 +179,40 @@ class Mass:
         self.all_particle_flag = wp.array(self.all_particle_flag, dtype=wp.int32)
         self.free_particle_offset = wp.array(self.free_particle_offset, dtype=wp.int32)
 
-    def _load_cloth_data(self, load=False):
-        if not load:
-            return
-        # 获取当前脚本文件所在目录
-        script_dir = os.path.dirname(os.path.abspath(__file__))
 
-        # 拼出 data 目录的绝对路径
-        file_path = os.path.join(script_dir, "data", "verts_last_frame.npy")
-        file_path_vel = os.path.join(script_dir, "data", "vel_last_frame.npy")
-        
-        # 判断文件是否存在
-        if not os.path.exists(file_path):
-            print(f"未找到文件: {file_path}，跳过加载。")
-            return
 
-        # 加载数据
-        verts = np.load(file_path)
-        vel = np.load(file_path_vel)
-        self.pos_cur = verts
-        self.vel_cur = vel
-        print('\n---Finish loading cloth data---\n')
-        #print('pos_cur', self.pos_cur)
-        #print('vel_cur', self.vel_cur)
 
-    def _init_cloth_data(self):
-        self.pos_warp = wp.array(self.pos_cur, dtype=wp.vec3)
-        self.pos_prev_warp = wp.array(self.pos_cur, dtype=wp.vec3)
-        self.vel_warp = wp.array(self.vel_cur, dtype=wp.vec3)
-        self.vel_prev_warp = wp.array(self.vel_cur, dtype=wp.vec3)
+def main():
+    # 创建仿真对象
+    cloth = Cloth()
+    
+    # 储存结果
+    cloth_data = [cloth.pos_cur.astype(np.float64).copy()]
+    cloth_vel = [cloth.vel_cur.astype(np.float64).copy()]
 
-    def _init_rotation(self):
+    # 计算
+    for i in range(cloth.All_Time_Step):
+        print("\n\n=====Time step: ", i, "=====")
+        cloth.Single_Newton_Method(time_step=i)
+        cloth_data.append(cloth.pos_cur.astype(np.float64).copy())
+        cloth_vel.append(cloth.vel_cur.astype(np.float64).copy())
 
-        wp.launch(
-            kernel=initialize_rotation,
-            dim=self.rot_point_indices.shape[0],
-            inputs=[
-                self.rot_point_indices,
-                self.pos_warp,
-                self.rot_centers,
-                self.rot_axes,
-                self.t,
-            ],
-            outputs=[
-                self.roots,
-                self.roots_to_ps,
-            ],
-        )
+        if i % 100 == 0:
+            # =================== 保存 verts ===================
+            save_dir = os.path.join(os.path.dirname(__file__), "output/data")
+            os.makedirs(save_dir, exist_ok=True)
+            run_id = cloth.DeBUG['record_name']
+            path_data = os.path.join(save_dir, f"cloth_data_{run_id}.npy")
+            np.save(path_data, np.array(cloth_data))
 
-    def _apply_rotation(self, rotation=False):
+    # =================== 保存 verts ===================
+    save_dir = os.path.join(os.path.dirname(__file__), "output/data")
+    os.makedirs(save_dir, exist_ok=True)
+    run_id = cloth.DeBUG['record_name']
+    path_data = os.path.join(save_dir, f"cloth_data_{run_id}.npy")
+    np.save(path_data, np.array(cloth_data))
 
-        if not rotation:
-            return
 
-        wp.launch(
-            kernel=apply_rotation,
-            dim=self.rot_point_indices.shape[0],
-            inputs=[
-                self.rot_point_indices,
-                self.rot_axes,
-                self.roots,
-                self.roots_to_ps,
-                self.t,
-                self.rot_angular_velocity,
-                self.dt,
-                self.rot_end_time,
-            ],
-            outputs=[
-                self.pos_prev_warp,
-                self.pos_warp,
-            ],
-        )
+
+if __name__ == "__main__":
+    main()

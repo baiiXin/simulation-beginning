@@ -443,7 +443,8 @@ def main():
         'line_search_max_step': 15,
         'Damping': 0.0,
         'spring_type': 0,
-        'record_name': 'cloth_twist_70x70_mass00083'
+        'forward_type': 0,
+        'record_name': 'cloth_twist_70x70_mass00083_line_search0'
     }
 
     # 仿真计算
