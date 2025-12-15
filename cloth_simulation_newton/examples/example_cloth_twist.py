@@ -443,7 +443,8 @@ def main():
         'line_search_max_step': 15,
         'Damping': 0.0,
         'spring_type': 0,
-        'record_name': 'cloth_twist_70x70_mass00083'
+        'forward_type': 0,
+        'record_name': 'cloth_twist_70x70_mass00083_line_search0'
     }
 
     # 仿真计算
@@ -500,14 +501,14 @@ def main():
 
         if i % 100 == 0:
             # =================== 保存 verts ===================
-            save_dir = os.path.join(os.path.dirname(__file__), "render/input")
+            save_dir = os.path.join(os.path.dirname(__file__), "output/data")
             os.makedirs(save_dir, exist_ok=True)
             run_id = DeBUG['record_name']
             path_data = os.path.join(save_dir, f"cloth_data_{run_id}.npy")
             np.save(path_data, np.array(cloth_data))
 
     # =================== 保存 verts ===================
-    save_dir = os.path.join(os.path.dirname(__file__), "render/input")
+    save_dir = os.path.join(os.path.dirname(__file__), "output/data")
     os.makedirs(save_dir, exist_ok=True)
     run_id = DeBUG['record_name']
     path_data = os.path.join(save_dir, f"cloth_data_{run_id}.npy")

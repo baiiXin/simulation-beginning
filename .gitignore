@@ -42,3 +42,5 @@ asv/html
 MUJOCO_LOG.TXT
 imgui.ini
 newton/tests/outputs/
+running_log/
+cloth_simulation_newton/_old_vertion/run/render/
