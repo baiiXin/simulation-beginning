@@ -11,7 +11,7 @@ from newton._src.solvers.zcy_vbd.zcy_solver_vbd import zcy_SolverVBD
 class Cloth:
     def __init__(self):
         # 读取文件
-        assets_path = '/data/zhoucy/sim/cloth_simulation_newton/examples/assets/cloth_fall_sphere.npz'
+        assets_path = '/data/zhoucy/sim/cloth_simulation_newton/examples/assets/cloth_fall_sphere_1_unit.npz'
         data = np.load(assets_path, allow_pickle=True)
         mesh = data["mesh"].item()
 
@@ -22,14 +22,14 @@ class Cloth:
         self.ele = mesh["triangles_all"].astype(np.int32, copy=False)
 
         # 初始化 质量和阻尼
-        self.mass = 0.0083
+        self.mass = 0.01
         self.damp = 1.0
         self.gravity = 9.8
-        self.dt = 0.003 
-        self.All_Time_Step = 1
+        self.dt = 0.001
+        self.All_Time_Step = 150
 
         self.tolerance_newton = 1e-4
-        self.iterations = 1
+        self.iterations = 10
         self.DeBUG =  {
             'DeBUG': True,
             'record_hessian': False,
@@ -42,11 +42,11 @@ class Cloth:
             'Contact_VT': True,
             'Inertia_Hessian': True,
             'Eigen': True,
-            'line_search_max_step': 1,
+            'line_search_max_step': 5,
             'Damping': 0.0,
             'spring_type': 0,
             'forward_type': 0,
-            'record_name': 'cloth_fall_sphere'
+            'record_name': 'cloth_fall_sphere_1_unit'
         }
         # fixed points
         self.fixed_idx = mesh["fixed_index"]
@@ -197,7 +197,7 @@ def main():
         cloth_data.append(cloth.pos_cur.astype(np.float64).copy())
         cloth_vel.append(cloth.vel_cur.astype(np.float64).copy())
 
-        if i % 100 == 0:
+        if i % 50 == 0:
             # =================== 保存 verts ===================
             save_dir = os.path.join(os.path.dirname(__file__), "output/data")
             os.makedirs(save_dir, exist_ok=True)
