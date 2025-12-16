@@ -1,8 +1,28 @@
 ### truncate the displacement
 import warp as wp
 import numpy as np
+
 #import trimesh
 import os
+
+def select_file(folder, suffix=None):
+    files = [
+        f for f in os.listdir(folder)
+        if os.path.isfile(os.path.join(folder, f))
+        and (suffix is None or f.endswith(suffix))
+    ]
+    files.sort()
+
+    for i, f in enumerate(files):
+        print(f"[{i}] {f}")
+
+    idx = int(input("请选择文件编号: "))
+    return os.path.join(folder, files[idx])
+
+# 取自身目录并拼接
+EXAMPLES = os.path.dirname(os.path.abspath(__file__))
+ASSETS = os.path.join(EXAMPLES, "assets")
+OUTPUT = os.path.join(EXAMPLES, "output")
 
 # cpmpute bounds
 import newton
@@ -10,9 +30,11 @@ from newton._src.solvers.zcy_vbd.zcy_solver_vbd import zcy_SolverVBD
 
 class Cloth:
     def __init__(self):
-        # 读取文件
-        assets_path = '/data/zhoucy/sim/cloth_simulation_newton/examples/assets/cloth_fall_sphere_1_unit.npz'
-        data = np.load(assets_path, allow_pickle=True)
+        # 读取文件+取文件名
+        load_file = select_file(ASSETS)
+        SPACIAL_NAME = os.path.splitext(os.path.basename(load_file))[0]
+        
+        data = np.load(load_file, allow_pickle=True)
         mesh = data["mesh"].item()
 
         # 初始化 位置和速度
@@ -22,19 +44,19 @@ class Cloth:
         self.ele = mesh["triangles_all"].astype(np.int32, copy=False)
 
         # 初始化 质量和阻尼
-        self.mass = 0.01
+        self.mass = 0.0083
         self.damp = 1.0
         self.gravity = 9.8
         self.dt = 0.001
         self.All_Time_Step = 150
 
         self.tolerance_newton = 1e-4
-        self.iterations = 10
+        self.iterations = 1000
         self.DeBUG =  {
             'DeBUG': True,
             'record_hessian': False,
             'max_information': True,
-            'max_warning': False,
+            'max_warning': True,
             'Spring': True,
             'Bending': True,
             'Contact': True,
@@ -42,11 +64,11 @@ class Cloth:
             'Contact_VT': True,
             'Inertia_Hessian': True,
             'Eigen': True,
-            'line_search_max_step': 5,
+            'line_search_max_step': 10,
             'Damping': 0.0,
             'spring_type': 0,
-            'forward_type': 0,
-            'record_name': 'cloth_fall_sphere_1_unit'
+            'forward_type': 1,
+            'record_name': SPACIAL_NAME
         }
         # fixed points
         self.fixed_idx = mesh["fixed_index"]
