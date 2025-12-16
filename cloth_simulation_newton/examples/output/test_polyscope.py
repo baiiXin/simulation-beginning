@@ -38,7 +38,7 @@ def choose_file_interactive(files, input_dir):
 
 def load_cloth_data_and_topy_for(data_file):
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    input_dir = os.path.join(script_dir, "input")
+    input_dir = os.path.join(script_dir, "data")
     suffix = os.path.splitext(os.path.basename(data_file))[0][len("cloth_data_"):]
     topy_file = os.path.join(input_dir, f"cloth_topy_{suffix}.npy")
     data = np.load(data_file)
