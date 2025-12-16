@@ -147,8 +147,8 @@ class Mass:
         self.scale=1.0
 
         # contact parameters
-        self.contact_radius=0.05
-        self.contact_margin=0.05
+        self.contact_radius=0.03
+        self.contact_margin=0.03
 
         # 初始值
         #self.pos_cur[:, [1, 2]] = self.pos_cur[:, [2, 1]]
@@ -258,7 +258,7 @@ class Mass:
 
     def time_step(self, Spring: Spring, fixed_num, ite_num, space_dim=3, time_step=0, rotation=False):
         T = self.dt * time_step
-        if T > 3.0:
+        if T > 4.5:
             rotation = False
             
         self._apply_rotation(rotation=rotation)
@@ -398,10 +398,10 @@ def main():
     # triangles: (Ne, 3) array of vertex indices
     # ===== 仿真参数 =====
     # 网格生成
-    a = -17.0
-    b = 17.0
-    c = -17.0
-    d = 17.0
+    a = -2.0
+    b = 2.0
+    c = -2.0
+    d = 2.0
     h1 = 0.5
     h2 = 0.5
     #fixed_num0 = (int((b-a)/h1)+1)*2 + 1
@@ -444,7 +444,7 @@ def main():
         'Damping': 0.0,
         'spring_type': 0,
         'forward_type': 0,
-        'record_name': 'cloth_twist_70x70_mass00083_line_search0'
+        'record_name': 'cloth_twist_9x9'
     }
 
     # 仿真计算
@@ -499,7 +499,7 @@ def main():
         cloth_data.append(myMass.pos_cur.astype(np.float64).copy())
         cloth_vel.append(myMass.vel_cur.astype(np.float64).copy())
 
-        if i % 100 == 0:
+        if i % 50 == 0:
             # =================== 保存 verts ===================
             save_dir = os.path.join(os.path.dirname(__file__), "output/data")
             os.makedirs(save_dir, exist_ok=True)

@@ -120,7 +120,7 @@ def main():
     os.makedirs(output_dir, exist_ok=True)
     output_path = os.path.join(output_dir, "cloth_polyscope.mp4")
     fps = 240
-    frame_size = (1280, 720)
+    frame_size = (1920, 1080)
     tmp_path = os.path.join(output_dir, "frame_tmp.png")
     try:
         import imageio
