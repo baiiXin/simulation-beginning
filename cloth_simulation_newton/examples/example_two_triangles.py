@@ -52,11 +52,8 @@ class Mass:
         self.scale=1.0
 
         # contact parameters
-        self.contact_radius=0.02
-        self.contact_margin=0.03
-        self.contact_ke=1.0e3
-        self.tri_ke=1.0e3
-        self.bend_ke=1.0e3
+        self.contact_radius=0.05
+        self.contact_margin=0.05
 
         # 初始值
         #self.pos_cur[:, [1, 2]] = self.pos_cur[:, [2, 1]]
@@ -64,7 +61,13 @@ class Mass:
         self.vel_prev = self.vel_cur.copy()*self.scale
 
         # warp_vbd_self_collison_init
-        self.device = wp.get_device('cpu')
+        wp.init()
+        if wp.is_cuda_available():
+            device = "cuda"
+        else:
+            device = "cpu"
+        self.device = wp.get_device(device)
+
         self.pos_warp = [wp.vec3(self.pos_cur[i,:]) for i in range(self.num)]
 
         self.builder = newton.ModelBuilder()
@@ -76,21 +79,24 @@ class Mass:
                     indices=self.ele.reshape(-1),
                     vel=wp.vec3(0.0, 0.0, 0.0),
                     density=0.2,
-                    tri_ke=self.tri_ke,
-                    tri_kd=self.tri_ke,
-                    tri_ka=self.tri_ke,
-                    edge_ke=self.bend_ke,
-                    edge_kd=self.bend_ke,
+                    tri_ke=1.0e3,
+                    tri_ka=1.0e3,
+                    tri_kd=2.0e-2 * self.DeBUG['Damping'],
+                    edge_ke=1e-3,
+                    edge_kd=1e-2 * self.DeBUG['Damping'],
         )
         self.builder.add_ground_plane()
         self.builder.color(include_bending=True)
         self.model = self.builder.finalize()
 
         # contact parameters
-        self.model.contact_ke = self.contact_ke
+        self.model.soft_contact_ke = 1.0e3
+        self.model.soft_contact_kd = 1.0e-2 * self.DeBUG['Damping']
+        self.model.soft_contact_mu = 0.2
 
         # model.gravity
         self.model.gravity = wp.vec3(0.0, 0.0, -self.gravity)
+        self.model.spring_damping = 1.0e-2 * self.DeBUG['Damping']
         print('self.model.g', self.model.gravity)
 
         # spring information
@@ -206,7 +212,7 @@ def main():
     # simulation
     # 初始参数
     dt = 0.003
-    N = 3000
+    N = 1000
     ite_num = 30
     tolerance_newton =  1e-4
 
@@ -215,7 +221,7 @@ def main():
         'DeBUG': True,
         'record_hessian': False,
         'max_information': True,
-        'max_warning': False,
+        'max_warning': True,
         'Spring': True,
         'Bending': False,
         'Contact': True,
@@ -230,7 +236,7 @@ def main():
         'record_name': 'two_triangles_collision'
     }
 
-    Mass_X = np.array([[0.0,0.0,0.0], [3.0,0.0,0.0], [0.0,4.0,0.0], [1.0,1.0,0.01], [2.0,1.0,0.5], [1.0,2.0,0.5]])
+    Mass_X = np.array([[0.0,0.0,0.0], [5.0,0.0,0.0], [0.0,5.0,0.0], [1.0,1.0,0.5], [2.0,1.0,1.5], [1.0,2.0,1.5]])
 
     Mass_V = np.array([[0.0,0.0,0.0], [0.0,0.0,0.0], [0.0,0.0,0.0], [0.0,0.0,0.0], [0.0,0.0,0.0], [0.0,0.0,0.0]])
 

@@ -95,16 +95,11 @@ def main():
         color=(0.2, 0.6, 1.0),
         smooth_shade=False,
     )
-    all_min = np.min(cloth_data.reshape(-1, 3), axis=0)
-    all_max = np.max(cloth_data.reshape(-1, 3), axis=0)
-    center = (all_min + all_max) / 2.0
-    extent = all_max - all_min
-    radius = float(np.linalg.norm(extent))
-    if radius < 1e-6:
-        radius = 1.0
-    R = max(1.5, 1.2 * radius)
-    cam_pos = center + np.array([R, 0.0, 0.0])
-    ps.look_at(cam_pos, center.tolist())
+    
+    center = np.array([3.0, 3.0, 0.0])
+    R = 5.0
+    cam_pos = center + np.array([R, 0.0, 0.5 * R])
+    ps.look_at(cam_pos, center)
     output_dir = os.path.join(script_dir, "video")
     os.makedirs(output_dir, exist_ok=True)
     output_path = os.path.join(output_dir, "two_triangles.mp4")
