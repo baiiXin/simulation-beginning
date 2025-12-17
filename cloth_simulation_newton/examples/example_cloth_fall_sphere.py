@@ -48,15 +48,15 @@ class Cloth:
         self.damp = 1.0
         self.gravity = 9.8
         self.dt = 0.001
-        self.All_Time_Step = 150
+        self.All_Time_Step = 500
 
         self.tolerance_newton = 1e-4
-        self.iterations = 1000
+        self.iterations = 10
         self.DeBUG =  {
             'DeBUG': True,
             'record_hessian': False,
             'max_information': True,
-            'max_warning': True,
+            'max_warning': False,
             'Spring': True,
             'Bending': True,
             'Contact': True,
@@ -64,7 +64,7 @@ class Cloth:
             'Contact_VT': True,
             'Inertia_Hessian': True,
             'Eigen': True,
-            'line_search_max_step': 10,
+            'line_search_max_step': 5,
             'Damping': 0.0,
             'spring_type': 0,
             'forward_type': 1,

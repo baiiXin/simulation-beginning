@@ -44,3 +44,5 @@ imgui.ini
 newton/tests/outputs/
 running_log/
 cloth_simulation_newton/_old_vertion/run/render/
+cloth_simulation_newton/examples/output/video
+cloth_simulation_newton/examples/output/data

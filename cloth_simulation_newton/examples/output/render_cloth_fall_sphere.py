@@ -3,13 +3,38 @@ import numpy as np
 import imageio
 import os # 用于处理路径
 
+def select_file(folder, suffix=None):
+    files = [
+        f for f in os.listdir(folder)
+        if os.path.isfile(os.path.join(folder, f))
+        and (suffix is None or f.endswith(suffix))
+    ]
+    files.sort()
+
+    for i, f in enumerate(files):
+        print(f"[{i}] {f}")
+
+    idx = int(input("请选择文件编号: "))
+    return os.path.join(folder, files[idx])
+
+# 取自身目录并拼接
+EXAMPLES =  os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ASSETS = os.path.join(EXAMPLES, "assets")
+OUTPUT = os.path.join(EXAMPLES, "output")
+DATA = os.path.join(OUTPUT, "data")
+
+# 读取文件+取文件名
+load_assets_file = select_file(ASSETS)
+load_data_file = select_file(DATA)
+SPACIAL_NAME = os.path.splitext(os.path.basename(load_assets_file))[0]
+
 # ==========================================
 # 1. 路径设置 (根据你的环境修改)
 # ==========================================
 
-assets_path = os.path.join('/data/zhoucy/sim/cloth_simulation_newton', 'examples', 'assets', 'cloth_fall_sphere_3_layers.npz')
-data_path = os.path.join('/data/zhoucy/sim/cloth_simulation_newton', 'examples', 'output', 'data', 'cloth_data_cloth_fall_sphere_1_unit.npy')
-output_video_path = os.path.join('/data/zhoucy/sim/cloth_simulation_newton', 'examples', 'output', 'video', 'cloth_data_cloth_fall_sphere_1_unit.mp4')
+assets_path = load_assets_file
+data_path = load_data_file
+output_video_path = os.path.join(OUTPUT, 'video', f'{SPACIAL_NAME}.mp4')
 
 # 确保输出目录存在
 os.makedirs(os.path.dirname(output_video_path), exist_ok=True)
