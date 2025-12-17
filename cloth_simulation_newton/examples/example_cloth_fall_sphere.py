@@ -51,7 +51,7 @@ class Cloth:
         self.All_Time_Step = 500
 
         self.tolerance_newton = 1e-4
-        self.iterations = 10
+        self.iterations = 30
         self.DeBUG =  {
             'DeBUG': True,
             'record_hessian': False,
@@ -64,7 +64,11 @@ class Cloth:
             'Contact_VT': True,
             'Inertia_Hessian': True,
             'Eigen': True,
-            'line_search_max_step': 5,
+            'line_search_max_step': 15,
+            'line_search_control_residual': True,
+            'numerical_precision_condition': True,
+            'barrier_threshold': 1e-5,
+            'truncation_threshold': 1e-5,
             'Damping': 0.0,
             'spring_type': 0,
             'forward_type': 1,
