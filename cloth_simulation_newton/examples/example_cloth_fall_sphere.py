@@ -26,7 +26,7 @@ OUTPUT = os.path.join(EXAMPLES, "output")
 
 # cpmpute bounds
 import newton
-from newton._src.solvers.zcy_vbd.zcy_solver_vbd import zcy_SolverVBD
+from newton._src.solvers.zcy_newton.zcy_solver_newton import zcy_SolverNewton
 
 class Cloth:
     def __init__(self):
@@ -48,7 +48,7 @@ class Cloth:
         self.damp = 1.0
         self.gravity = 9.8
         self.dt = 0.01
-        self.All_Time_Step = 500
+        self.All_Time_Step = 3000
 
         self.tolerance_newton = 1e-4
         self.iterations = 40
@@ -133,7 +133,7 @@ class Cloth:
         self.spring_rest_length = wp.zeros(10, dtype=wp.float32, device=self.device)
         self.spring_stiffness = wp.zeros(10, dtype=wp.float32, device=self.device)
 
-        self.vbd_integrator = zcy_SolverVBD(
+        self.integrator = zcy_SolverNewton(
                     model=self.model,
                     # DeBUG
                     DeBUG = self.DeBUG,
@@ -171,7 +171,7 @@ class Cloth:
         
         # Newton Method (Implicit Euler)
         # iteration
-        self.vbd_integrator.zcy_simulate_one_step(
+        self.integrator.zcy_simulate_one_step(
             pos_warp = self.pos_warp,
             pos_prev_warp = self.pos_prev_warp,
             vel_warp = self.vel_warp,

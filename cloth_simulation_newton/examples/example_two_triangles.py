@@ -6,7 +6,8 @@ import os
 
 # cpmpute bounds
 import newton
-from newton._src.solvers.zcy_vbd.zcy_solver_vbd import zcy_SolverVBD
+from newton._src.solvers.zcy_newton.zcy_solver_newton import zcy_SolverNewton
+
 
 
 class Spring:
@@ -108,7 +109,7 @@ class Mass:
 
         print('spring_indices', type(self.spring_indices))
 
-        self.vbd_integrator = zcy_SolverVBD(
+        self.integrator = zcy_SolverNewton(
                     model=self.model,
                     # DeBUG
                     DeBUG = self.DeBUG,
@@ -160,7 +161,7 @@ class Mass:
         print('\n---cloth---', self.iterations)
 
         # step
-        self.vbd_integrator.zcy_simulate_one_step(
+        self.integrator.zcy_simulate_one_step(
             pos_warp = self.pos_warp,
             pos_prev_warp = self.pos_prev_warp,
             vel_warp = self.vel_warp,
@@ -221,15 +222,19 @@ def main():
         'DeBUG': True,
         'record_hessian': False,
         'max_information': True,
-        'max_warning': True,
+        'max_warning': False,
         'Spring': True,
-        'Bending': False,
+        'Bending': True,
         'Contact': True,
         'Contact_EE': True,
         'Contact_VT': True,
         'Inertia_Hessian': True,
-        'Eigen': False,
-        'line_search_max_step': 1,
+        'Eigen': True,
+        'line_search_max_step': 15,
+        'line_search_control_residual': True,
+        'numerical_precision_condition': True,
+        'barrier_threshold': 0.0,
+        'truncation_threshold': 0.0,
         'Damping': 0.0,
         'spring_type': 0,
         'forward_type': 1,

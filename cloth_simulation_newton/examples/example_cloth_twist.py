@@ -6,7 +6,7 @@ import os
 
 # cpmpute bounds
 import newton
-from newton._src.solvers.zcy_vbd.zcy_solver_vbd import zcy_SolverVBD
+from newton._src.solvers.zcy_newton.zcy_solver_newton import zcy_SolverNewton
 from assets.generate_fun import generate_spring, generate_mass
 
 @wp.kernel
@@ -203,7 +203,7 @@ class Mass:
 
         print('spring_indices', type(self.spring_indices))
 
-        self.vbd_integrator = zcy_SolverVBD(
+        self.integrator = zcy_SolverNewton(
                     model=self.model,
                     # DeBUG
                     DeBUG = self.DeBUG,
@@ -282,7 +282,7 @@ class Mass:
         print('\n---cloth---', self.iterations)
 
         # step
-        self.vbd_integrator.zcy_simulate_one_step(
+        self.integrator.zcy_simulate_one_step(
             pos_warp = self.pos_warp,
             pos_prev_warp = self.pos_prev_warp,
             vel_warp = self.vel_warp,
