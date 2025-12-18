@@ -73,6 +73,7 @@ def load_triangles(nm, topy):
         return topy
     return build_grid_triangles(nm)
 
+
 # 主流程：初始化 Polyscope、注册对象、环绕拍摄并导出
 def main():
     script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -102,13 +103,15 @@ def main():
     except Exception:
         cv2 = None
     import polyscope as ps
+    if os.environ.get("DISPLAY", "") == "":
+        ps.set_allow_headless_backends(True)
     # 3) 初始化 Polyscope 渲染环境
     ps.init()
     ps.set_up_dir("z_up")
     ps.set_ground_plane_mode("none")
     # 4) 注册对象：优先表面网格，否则点云
     if triangles is not None:
-        mesh = ps.register_surface_mesh("cloth", cloth_data[0], triangles, color=(0.5, 0.7, 1.0), smooth_shade=True)
+        mesh = ps.register_surface_mesh("cloth", cloth_data[0], triangles, color=(0.5, 0.7, 1.0), smooth_shade=False)
     else:
         mesh = ps.register_point_cloud("cloth_points", cloth_data[0])
         try:
@@ -121,7 +124,6 @@ def main():
     output_path = os.path.join(output_dir, "cloth_polyscope.mp4")
     fps = 240
     frame_size = (1920, 1080)
-    tmp_path = os.path.join(output_dir, "frame_tmp.png")
     try:
         import imageio
     except Exception:
@@ -134,54 +136,75 @@ def main():
         writer_imageio = imageio.get_writer(output_path, fps=float(fps))
     else:
         raise RuntimeError("opencv 和 imageio 不可用，无法写出 mp4")
-    # 6) 视角与包围盒：计算中心、半径、相机轨迹
-    frame0 = cloth_data[0]
-    all_min = np.min(frame0, axis=0)
-    all_max = np.max(frame0, axis=0)
-    center = (all_min + all_max) / 2.0
-    extent = all_max - all_min
+    verts0 = cloth_data[0]
+    vmin = np.min(verts0, axis=0)
+    vmax = np.max(verts0, axis=0)
+    center = (vmin + vmax) * 0.5
+    extent = vmax - vmin
     radius = float(np.linalg.norm(extent))
-    if radius < 1e-6:
+    if radius < 1e-8:
         radius = 1.0
-    R = 1.2 * radius
-    height = 0.8 * R
-    cam_pos = center + np.array([R, 0.0, height])
-    ps.look_at(cam_pos, center.tolist())
-    for frame in range(N):
-        verts = cloth_data[frame]
+    cam_pos = center + np.array([1.2 * radius, -1.2 * radius, 0.8 * radius], dtype=np.float64)
+    ps.look_at(cam_pos, center)
+
+    t = 0
+    max_frames = int(N)
+    is_recording = True
+
+    def callback():
+        nonlocal t, is_recording
+
+        if t >= max_frames:
+            if is_recording:
+                is_recording = False
+                if writer_cv2 is not None:
+                    writer_cv2.release()
+                if writer_imageio is not None:
+                    writer_imageio.close()
+                print(f"\nDone! Video saved as:\n{output_path}")
+                if args.show:
+                    ps.set_user_callback(None)
+            return
+
+        verts = cloth_data[t]
         if hasattr(mesh, "update_vertex_positions"):
             mesh.update_vertex_positions(verts)
         else:
             mesh.update_point_positions(verts)
-        
-        # 截屏到临时文件
-        ps.screenshot(tmp_path)
+
+        screenshot = ps.screenshot_to_buffer(transparent_bg=False)
+        if screenshot is None:
+            t += 1
+            return
+
+        if screenshot.ndim == 3 and screenshot.shape[-1] >= 3:
+            rgb = screenshot[..., :3]
+        else:
+            rgb = screenshot
+
+        if rgb.dtype != np.uint8:
+            rgb = np.clip(rgb * 255.0, 0.0, 255.0).astype(np.uint8)
+
+        h, w = rgb.shape[:2]
+        if (w, h) != frame_size:
+            if cv2 is not None:
+                rgb = cv2.resize(rgb, frame_size)
+
         if writer_cv2 is not None:
-            img = cv2.imread(tmp_path)
-            if img is not None:
-                h, w = img.shape[:2]
-                if (w, h) != frame_size:
-                    img = cv2.resize(img, frame_size)
-                writer_cv2.write(img)
+            bgr = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
+            writer_cv2.write(bgr)
         elif writer_imageio is not None:
-            im = imageio.imread(tmp_path)
-            writer_imageio.append_data(im)
-    # 8) 资源清理与展示
-    if writer_cv2 is not None:
-        writer_cv2.release()
-    if writer_imageio is not None:
-        writer_imageio.close()
-    try:
-        if os.path.exists(tmp_path):
-            os.remove(tmp_path)
-    except Exception:
-        pass
+            writer_imageio.append_data(rgb)
+
+        print(f"Processing frame: {t+1} / {max_frames}", end="\r")
+        t += 1
+
     if args.show:
-        try:
-            import polyscope as ps
-            # ps.show()
-        except Exception:
-            pass
+        ps.set_user_callback(callback)
+        ps.show()
+    else:
+        while is_recording:
+            callback()
 
 if __name__ == "__main__":
     main()
