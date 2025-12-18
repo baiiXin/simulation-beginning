@@ -147,8 +147,8 @@ class Mass:
         self.scale=1.0
 
         # contact parameters
-        self.contact_radius=0.03
-        self.contact_margin=0.03
+        self.contact_radius=0.010
+        self.contact_margin=0.010
 
         # 初始值
         #self.pos_cur[:, [1, 2]] = self.pos_cur[:, [2, 1]]
@@ -258,7 +258,7 @@ class Mass:
 
     def time_step(self, Spring: Spring, fixed_num, ite_num, space_dim=3, time_step=0, rotation=False):
         T = self.dt * time_step
-        if T > 4.5:
+        if T > 6:
             rotation = False
             
         self._apply_rotation(rotation=rotation)
@@ -402,8 +402,8 @@ def main():
     b = 2.0
     c = -2.0
     d = 2.0
-    h1 = 0.5
-    h2 = 0.5
+    h1 = 0.05
+    h2 = 0.05
     #fixed_num0 = (int((b-a)/h1)+1)*2 + 1
     #fixed_num1 = (int((b-a)/h1)+1)*3 + 1 
     #fixed_num = [fixed_num0, fixed_num1]
@@ -413,7 +413,7 @@ def main():
 
     # 材料参数
     z=0.0
-    mass_m = 0.0083
+    mass_m = 0.000083
     stiff_k = 1000
 
     # 阻尼参数
@@ -422,8 +422,8 @@ def main():
 
     # simulation
     # 初始参数
-    dt = 0.003
-    N = 2000
+    dt = 0.001
+    N = 3000
     ite_num = 30
     tolerance_newton = 1e-4
 
@@ -441,10 +441,14 @@ def main():
         'Inertia_Hessian': True,
         'Eigen': True,
         'line_search_max_step': 15,
+        'line_search_control_residual': True,
+        'numerical_precision_condition': True,
+        'barrier_threshold': 0.0,
+        'truncation_threshold': 0.0,
         'Damping': 0.0,
         'spring_type': 0,
-        'forward_type': 0,
-        'record_name': 'cloth_twist_9x9'
+        'forward_type': 1,
+        'record_name': 'cloth_twist_90x90_2x2_010'
     }
 
     # 仿真计算

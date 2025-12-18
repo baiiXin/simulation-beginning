@@ -211,17 +211,17 @@ def generate_cloth_fall_sphere_assets(
 def main():
     # cloth
     cloth_rects = [(-2.0, 2.0, -2.0, 2.0)]
-    h1 = 0.5
-    h2 = 0.5
+    h1 = 0.05
+    h2 = 0.05
     z  = 5.0
-    mass_m = 0.001
+    mass_m = 0.000083
     cloth_layers = 1
     z_offset = 0.5
 
     # sphere
     sphere_center = (0.0, 0.0, 3.0)
     sphere_radius = 1.0
-    target_triangles = 80
+    target_triangles = 2000
 
     # ground
     add_ground = True

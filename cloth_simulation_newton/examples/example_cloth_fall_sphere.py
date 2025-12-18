@@ -44,14 +44,14 @@ class Cloth:
         self.ele = mesh["triangles_all"].astype(np.int32, copy=False)
 
         # 初始化 质量和阻尼
-        self.mass = 0.0083
+        self.mass = 0.000083
         self.damp = 1.0
         self.gravity = 9.8
-        self.dt = 0.001
+        self.dt = 0.01
         self.All_Time_Step = 500
 
         self.tolerance_newton = 1e-4
-        self.iterations = 30
+        self.iterations = 40
         self.DeBUG =  {
             'DeBUG': True,
             'record_hessian': False,
@@ -67,8 +67,8 @@ class Cloth:
             'line_search_max_step': 15,
             'line_search_control_residual': True,
             'numerical_precision_condition': True,
-            'barrier_threshold': 1e-5,
-            'truncation_threshold': 1e-5,
+            'barrier_threshold': 0.0,
+            'truncation_threshold': 0.0,
             'Damping': 0.0,
             'spring_type': 0,
             'forward_type': 1,
@@ -82,8 +82,8 @@ class Cloth:
         self.scale=1.0
 
         # contact parameters
-        self.contact_radius=0.05
-        self.contact_margin=0.05
+        self.contact_radius=0.005
+        self.contact_margin=0.005
 
         # 初始值
         self.pos_prev = self.pos_cur.copy()*self.scale
@@ -108,10 +108,10 @@ class Cloth:
                     indices=self.ele.reshape(-1),
                     vel=wp.vec3(0.0, 0.0, 0.0),
                     density=0.2,
-                    tri_ke=1.0e3,
-                    tri_ka=1.0e3,
+                    tri_ke=1.0e4,
+                    tri_ka=1.0e4,
                     tri_kd=2.0e-2 * self.DeBUG['Damping'],
-                    edge_ke=1e-3,
+                    edge_ke=1e-2,
                     edge_kd=1e-2 * self.DeBUG['Damping'],
         )
         self.builder.add_ground_plane()
@@ -119,7 +119,7 @@ class Cloth:
         self.model = self.builder.finalize()
 
         # contact parameters
-        self.model.soft_contact_ke = 1.0e2
+        self.model.soft_contact_ke = 1.0e4
         self.model.soft_contact_kd = 1.0e-2 * self.DeBUG['Damping']
         self.model.soft_contact_mu = 0.2
 
