@@ -117,7 +117,7 @@ def callback():
             print("\nSimulation finished. Saving MP4... please wait.")
             try:
                 # 使用 imageio[ffmpeg] 保存
-                imageio.mimsave(output_video_path, frames, fps=30)
+                imageio.mimsave(output_video_path, frames, fps=100)
                 print(f"Done! Video saved as:\n{output_video_path}")
             except Exception as e:
                 print(f"Save failed: {e}")

@@ -212,9 +212,9 @@ def main():
 
     # simulation
     # 初始参数
-    dt = 0.003
-    N = 1000
-    ite_num = 30
+    dt = 0.01
+    N = 500
+    ite_num = 100
     tolerance_newton =  1e-4
 
     # DeBUG 
@@ -222,7 +222,7 @@ def main():
         'DeBUG': True,
         'record_hessian': False,
         'max_information': True,
-        'max_warning': False,
+        'max_warning': True,
         'Spring': True,
         'Bending': True,
         'Contact': True,

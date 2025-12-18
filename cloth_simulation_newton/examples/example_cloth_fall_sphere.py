@@ -51,7 +51,7 @@ class Cloth:
         self.All_Time_Step = 3000
 
         self.tolerance_newton = 1e-4
-        self.iterations = 40
+        self.iterations = 300
         self.DeBUG =  {
             'DeBUG': True,
             'record_hessian': False,
@@ -65,7 +65,7 @@ class Cloth:
             'Inertia_Hessian': True,
             'Eigen': True,
             'line_search_max_step': 15,
-            'line_search_control_residual': True,
+            'line_search_control_residual': False,
             'numerical_precision_condition': True,
             'barrier_threshold': 0.0,
             'truncation_threshold': 0.0,
@@ -108,10 +108,10 @@ class Cloth:
                     indices=self.ele.reshape(-1),
                     vel=wp.vec3(0.0, 0.0, 0.0),
                     density=0.2,
-                    tri_ke=1.0e4,
-                    tri_ka=1.0e4,
+                    tri_ke=1.0e3,
+                    tri_ka=1.0e3,
                     tri_kd=2.0e-2 * self.DeBUG['Damping'],
-                    edge_ke=1e-2,
+                    edge_ke=1e-3,
                     edge_kd=1e-2 * self.DeBUG['Damping'],
         )
         self.builder.add_ground_plane()
@@ -119,7 +119,7 @@ class Cloth:
         self.model = self.builder.finalize()
 
         # contact parameters
-        self.model.soft_contact_ke = 1.0e4
+        self.model.soft_contact_ke = 1.0e3
         self.model.soft_contact_kd = 1.0e-2 * self.DeBUG['Damping']
         self.model.soft_contact_mu = 0.2
 

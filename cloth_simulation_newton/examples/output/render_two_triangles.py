@@ -103,7 +103,7 @@ def main():
     output_dir = os.path.join(script_dir, "video")
     os.makedirs(output_dir, exist_ok=True)
     output_path = os.path.join(output_dir, "two_triangles.mp4")
-    fps = 240
+    fps = 100
     frame_size = (1280, 720)
     tmp_path = os.path.join(output_dir, "frame_tmp.png")
     try:
