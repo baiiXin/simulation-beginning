@@ -7,7 +7,7 @@ import os
 # cpmpute bounds
 import newton
 from newton._src.solvers.zcy_newton.zcy_solver_newton import zcy_SolverNewton
-from assets.generate_fun import generate_spring, generate_mass
+from assets.generate_cloth import generate_cloth_mesh, generate_unique_springs
 
 @wp.kernel
 def initialize_rotation(
@@ -147,8 +147,8 @@ class Mass:
         self.scale=1.0
 
         # contact parameters
-        self.contact_radius=0.010
-        self.contact_margin=0.010
+        self.contact_radius=0.05
+        self.contact_margin=0.05
 
         # 初始值
         #self.pos_cur[:, [1, 2]] = self.pos_cur[:, [2, 1]]
@@ -398,12 +398,12 @@ def main():
     # triangles: (Ne, 3) array of vertex indices
     # ===== 仿真参数 =====
     # 网格生成
-    a = -2.0
-    b = 2.0
-    c = -2.0
-    d = 2.0
-    h1 = 0.05
-    h2 = 0.05
+    a = -17.0
+    b = 17.0
+    c = -17.0
+    d = 17.0
+    h1 = 0.5
+    h2 = 0.5
     #fixed_num0 = (int((b-a)/h1)+1)*2 + 1
     #fixed_num1 = (int((b-a)/h1)+1)*3 + 1 
     #fixed_num = [fixed_num0, fixed_num1]
@@ -413,7 +413,7 @@ def main():
 
     # 材料参数
     z=0.0
-    mass_m = 0.000083
+    mass_m = 0.0083
     stiff_k = 1000
 
     # 阻尼参数
@@ -422,7 +422,7 @@ def main():
 
     # simulation
     # 初始参数
-    dt = 0.001
+    dt = 0.003
     N = 3000
     ite_num = 30
     tolerance_newton = 1e-4
@@ -441,29 +441,31 @@ def main():
         'Inertia_Hessian': True,
         'Eigen': True,
         'line_search_max_step': 15,
-        'line_search_control_residual': True,
+        'line_search_control_residual': False,
         'numerical_precision_condition': True,
         'barrier_threshold': 0.0,
         'truncation_threshold': 0.0,
         'Damping': 0.0,
         'spring_type': 0,
         'forward_type': 1,
-        'record_name': 'cloth_twist_90x90_2x2_010'
+        'record_name': 'cloth_twist_70x70_17x17'
     }
 
     # 仿真计算
     # Mass
-    [Mass_num, Mass_X, Mass_E, Mass_V, Mass_m] = generate_mass(a, b, c, d, h1, h2, z, mass_m)
-    Mass_X = Mass_X.astype(np.float64, copy=False)
-    Mass_V = Mass_V.astype(np.float64, copy=False)
-    Mass_E = Mass_E.astype(np.int32, copy=False)
-    Mass_m = np.asarray(Mass_m, dtype=np.float64)
+    P, T = generate_cloth_mesh(a, b, c, d, h1, h2, z)
+    Mass_num = P.shape[0]
+    Mass_X = P.astype(np.float64, copy=False)
+    Mass_E = T.astype(np.int32, copy=False)
+    Mass_V = np.zeros_like(Mass_X)
+    Mass_m = mass_m
     print("Mass_num", Mass_num)
     # Spring
-    [Spring_num, Spring_ele, Spring_len, Spring_stiff_k] = generate_spring(Mass_X, Mass_E, stiff_k)
-    Spring_ele = Spring_ele.astype(np.int32, copy=False)
-    Spring_len = Spring_len.astype(np.float64, copy=False)
-    Spring_stiff_k = np.asarray(Spring_stiff_k, dtype=np.float64)
+    Ns, Springs, Lens, Ks = generate_unique_springs(P, T, stiff_k)
+    Spring_num = Ns
+    Spring_ele = Springs.astype(np.int32, copy=False)
+    Spring_len = Lens.astype(np.float64, copy=False)
+    Spring_stiff_k = Ks.astype(np.float64, copy=False)
     print("Spring_num", Spring_num)
 
     # 创建弹簧

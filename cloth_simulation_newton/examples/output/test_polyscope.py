@@ -6,6 +6,8 @@ import os
 import math
 import numpy as np
 import argparse
+import trimesh
+
 
 # 在候选路径列表中查找首个存在的文件路径
 def _find_file(paths):
@@ -98,6 +100,10 @@ def main():
     cloth_data, topy = load_cloth_data_and_topy_for(data_file)
     N, M, _ = cloth_data.shape
     triangles = load_triangles(M, topy)
+    # 修复法向
+    mesh_cloth1 = trimesh.Trimesh(vertices=cloth_data[0], faces=triangles, process=False)
+    mesh_cloth1.fix_normals()
+    triangles = mesh_cloth1.faces
     try:
         import cv2
     except Exception:
@@ -111,7 +117,7 @@ def main():
     ps.set_ground_plane_mode("none")
     # 4) 注册对象：优先表面网格，否则点云
     if triangles is not None:
-        mesh = ps.register_surface_mesh("cloth", cloth_data[0], triangles, color=(0.5, 0.7, 1.0), smooth_shade=False)
+        mesh = ps.register_surface_mesh("cloth", cloth_data[0], triangles, color=(0.5, 0.7, 1.0), smooth_shade=True)
     else:
         mesh = ps.register_point_cloud("cloth_points", cloth_data[0])
         try:
@@ -123,7 +129,7 @@ def main():
     os.makedirs(output_dir, exist_ok=True)
     output_path = os.path.join(output_dir, "cloth_polyscope.mp4")
     fps = 240
-    frame_size = (1920, 1080)
+    frame_size = (3840, 2160)
     try:
         import imageio
     except Exception:
@@ -144,7 +150,7 @@ def main():
     radius = float(np.linalg.norm(extent))
     if radius < 1e-8:
         radius = 1.0
-    cam_pos = center + np.array([1.2 * radius, -1.2 * radius, 0.8 * radius], dtype=np.float64)
+    cam_pos = center + np.array([0.6 * radius, 0.0 * radius, 1.2 * radius], dtype=np.float64)
     ps.look_at(cam_pos, center)
 
     t = 0

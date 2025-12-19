@@ -2,6 +2,8 @@ import polyscope as ps
 import numpy as np
 import imageio
 import os # 用于处理路径
+import trimesh
+
 
 def select_file(folder, suffix=None):
     files = [
@@ -70,10 +72,36 @@ cloth1_f = mesh["cloth1"]["triangles"]
 ground_v = mesh["ground"]["vertices"]
 ground_f = mesh["ground"]["triangles"]
 
+# 修复法向
+mesh_cloth1 = trimesh.Trimesh(vertices=cloth1_v, faces=cloth1_f, process=False)
+mesh_cloth1.fix_normals()
+cloth1_f = mesh_cloth1.faces
+
 # 注册初始网格
-ps.register_surface_mesh("Sphere", sphere_v, sphere_f, color=(0.9, 0.3, 0.3), smooth_shade=False)
-ps.register_surface_mesh("Cloth1", cloth1_v, cloth1_f, color=(0.3, 0.3, 0.3), smooth_shade=False)
-ps.register_surface_mesh("Ground", ground_v, ground_f, color=(0.5, 0.5, 0.5), smooth_shade=False)
+ps.register_surface_mesh(
+    "Sphere",
+    sphere_v,
+    sphere_f,
+    color=(0.96, 0.94, 0.88),   # 米白色
+    smooth_shade=True
+)
+
+ps.register_surface_mesh(
+    "Cloth1",
+    cloth1_v,
+    cloth1_f,
+    color=(0.2, 0.4, 0.9),  # 蓝色
+    smooth_shade=True
+)
+
+ground = ps.register_surface_mesh(
+    "Ground",
+    ground_v,
+    ground_f,
+    color=(0.6, 0.6, 0.6),
+    smooth_shade=True
+)
+ground.set_transparency(0.5)   # 0=不透明, 1=完全透明
 
 # ==========================================
 # 4. 读取动画数据

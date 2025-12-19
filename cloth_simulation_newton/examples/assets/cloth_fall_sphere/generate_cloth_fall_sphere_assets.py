@@ -1,6 +1,6 @@
 import numpy as np
 
-from generate_fun import generate_mass
+from generate_cloth import generate_cloth_mesh
 from generate_sphere import create_icosphere
 
 import os
@@ -26,7 +26,6 @@ def generate_cloth_fall_sphere_assets(
     h1 = 0.5,
     h2 = 0.5,
     z  = 5.0,
-    mass_m = 0.001,
     cloth_layers = int(1),
     z_offset = 0.5,
     # sphere
@@ -62,19 +61,19 @@ def generate_cloth_fall_sphere_assets(
         z_layer = z + layer_idx * z_offset
         for rect in cloth_rects:
             a, b, c, d = rect
-            # 调用通用的 generate_mass 生成当前层、当前矩形的布料网格
-            Mass_num, Mass_X, Mass_E, Mass_V, Mass_m = generate_mass(
-                a, b, c, d, h1, h2, z_layer, mass_m
+            # 调用通用的 generate_cloth_mesh 生成当前层、当前矩形的布料网格
+            pos_cloth, tri_cloth = generate_cloth_mesh(
+                a, b, c, d, h1, h2, z_layer
             )
 
-            Mass_X = np.asarray(Mass_X, dtype=np.float64)
-            Mass_E = np.asarray(Mass_E, dtype=np.int32)
+            pos_cloth = np.asarray(pos_cloth, dtype=np.float64)
+            tri_cloth = np.asarray(tri_cloth, dtype=np.int32)
 
-            tri_count = Mass_E.shape[0]
-            pos_count = Mass_X.shape[0]
+            tri_count = tri_cloth.shape[0]
+            pos_count = pos_cloth.shape[0]
 
             # 将局部顶点索引平移到全局顶点索引
-            triangles_global = Mass_E + vertex_offset
+            triangles_global = tri_cloth + vertex_offset
 
             cloth_counter += 1
             cloth_name = f"cloth{cloth_counter}"
@@ -83,11 +82,11 @@ def generate_cloth_fall_sphere_assets(
                 "pos_num": int(pos_count),               # 该布料的顶点数量
                 "start_tri_index": int(tri_offset),      # 该布料三角形在全局 triangles 中的起始行
                 "triangle_num": int(tri_count),          # 该布料的三角形数量
-                "vertices": Mass_X.copy(),               # 该布料自身的顶点坐标（局部）
-                "triangles": Mass_E.copy(),              # 该布料自身的三角拓扑（局部）
+                "vertices": pos_cloth.copy(),               # 该布料自身的顶点坐标（局部）
+                "triangles": tri_cloth.copy(),              # 该布料自身的三角拓扑（局部）
             }
 
-            all_vertices.append(Mass_X)
+            all_vertices.append(pos_cloth)
             all_triangles.append(triangles_global)
 
             vertex_offset += pos_count
@@ -210,22 +209,21 @@ def generate_cloth_fall_sphere_assets(
 
 def main():
     # cloth
-    cloth_rects = [(-2.0, 2.0, -2.0, 2.0)]
-    h1 = 0.05
-    h2 = 0.05
-    z  = 5.0
-    mass_m = 0.000083
+    cloth_rects = [(-17.0, 17.0, -17.0, 17.0)]
+    h1 = 0.5
+    h2 = 0.5
+    z  = 15.0
     cloth_layers = 1
     z_offset = 0.5
 
     # sphere
-    sphere_center = (0.0, 0.0, 3.0)
-    sphere_radius = 1.0
+    sphere_center = (0.0, 0.0, 8.0)
+    sphere_radius = 5.0
     target_triangles = 2000
 
     # ground
     add_ground = True
-    ground_rect = (-6.0, 6.0, -6.0, 6.0)
+    ground_rect = (-60.0, 60.0, -60.0, 60.0)
     ground_z = 0.0
 
     # generate assets
@@ -235,7 +233,6 @@ def main():
         h1=h1,
         h2=h2,
         z=z,
-        mass_m=mass_m,
         cloth_layers=cloth_layers,
         z_offset=z_offset,
         # sphere
