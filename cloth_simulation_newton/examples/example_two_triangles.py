@@ -53,8 +53,8 @@ class Mass:
         self.scale=1.0
 
         # contact parameters
-        self.contact_radius=0.05
-        self.contact_margin=0.05
+        self.contact_radius=0.03
+        self.contact_margin=0.03
 
         # 初始值
         #self.pos_cur[:, [1, 2]] = self.pos_cur[:, [2, 1]]
@@ -222,7 +222,7 @@ def main():
         'DeBUG': True,
         'record_hessian': False,
         'max_information': True,
-        'max_warning': True,
+        'max_warning': False,
         'Spring': True,
         'Bending': True,
         'Contact': True,
@@ -231,14 +231,18 @@ def main():
         'Inertia_Hessian': True,
         'Eigen': True,
         'line_search_max_step': 15,
-        'line_search_control_residual': True,
+        'line_search_control_residual': False,
+        'convergence_abs_tolerance': 1e-2,
+        'convergence_rel_tolerance': 1e-4,
         'numerical_precision_condition': True,
+        'numerical_precision_abs_tolerance': 1e-14,
+        'numerical_precision_rel_tolerance': 1e-18,
         'barrier_threshold': 0.0,
         'truncation_threshold': 0.0,
         'Damping': 0.0,
         'spring_type': 0,
         'forward_type': 1,
-        'record_name': 'two_triangles_collision'
+        'record_name': 'two_triangles'
     }
 
     Mass_X = np.array([[0.0,0.0,0.0], [5.0,0.0,0.0], [0.0,5.0,0.0], [1.0,1.0,0.5], [2.0,1.0,1.5], [1.0,2.0,1.5]])

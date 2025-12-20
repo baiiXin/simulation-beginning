@@ -44,10 +44,13 @@ os.makedirs(os.path.dirname(output_video_path), exist_ok=True)
 # ==========================================
 # 2. 初始化 Polyscope
 # ==========================================
+if os.environ.get("DISPLAY", "") == "":
+    ps.set_allow_headless_backends(True)
 ps.init()
-ps.set_window_size(1200, 800)
+ps.set_window_size(1280, 720)
+ps.set_render_resolution(1280, 720)
 ps.set_up_dir("z_up") # 确认你的数据是 Z 轴向上的
-ps.set_ground_plane_mode("none")
+ps.set_ground_plane_mode("shadow_only")
 
 # ==========================================
 # 3. 读取并准备数据
@@ -181,7 +184,7 @@ def callback():
 # 假设你的物体在 (0,0,0) 附近，且是 Z轴向上
 # camera_pos: x=3, y=-3, z=3 (从斜上方看)
 # target: 看向原点 (0,0,0)
-ps.look_at((8.0, 0.0, 8.0), (0.0, 0.0, 3.0))
+ps.look_at((6.0, 0.0, 6.0), (0.0, 0.0, 3.0))
 
 # 开始录制
 ps.set_user_callback(callback)

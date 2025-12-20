@@ -78,6 +78,8 @@ def main():
         import cv2
     except Exception:
         cv2 = None
+    if os.environ.get("DISPLAY", "") == "":
+        ps.set_allow_headless_backends(True)
     ps.init()
     ps.set_up_dir("z_up")
     ps.set_ground_plane_mode("shadow_only")

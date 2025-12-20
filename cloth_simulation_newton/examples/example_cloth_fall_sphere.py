@@ -66,13 +66,17 @@ class Cloth:
             'Eigen': True,
             'line_search_max_step': 15,
             'line_search_control_residual': False,
+            'convergence_abs_tolerance': 1e-2,
+            'convergence_rel_tolerance': 1e-4,
             'numerical_precision_condition': True,
+            'numerical_precision_abs_tolerance': 1e-12,
+            'numerical_precision_rel_tolerance': 1e-16,
             'barrier_threshold': 0.0,
             'truncation_threshold': 0.0,
             'Damping': 0.0,
             'spring_type': 0,
             'forward_type': 1,
-            'record_name': SPACIAL_NAME+'topy_right'
+            'record_name': SPACIAL_NAME+'soft10000'
         }
         # fixed points
         self.fixed_idx = mesh["fixed_index"]
@@ -108,8 +112,8 @@ class Cloth:
                     indices=self.ele.reshape(-1),
                     vel=wp.vec3(0.0, 0.0, 0.0),
                     density=0.2,
-                    tri_ke=1.0e4,
-                    tri_ka=1.0e4,
+                    tri_ke=1.0e3,
+                    tri_ka=1.0e3,
                     tri_kd=2.0e-2 * self.DeBUG['Damping'],
                     edge_ke=1e-3,
                     edge_kd=1e-2 * self.DeBUG['Damping'],

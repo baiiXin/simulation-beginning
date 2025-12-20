@@ -109,6 +109,16 @@ class Mass:
                  force=None, Hessian=None, Mass_k=None,
                  damp=None, gravity=None, Spring=Spring, dt=None, 
                  tolerance_newton=None, cloth_size=0, DeBUG=None):
+
+        # warp_vbd_self_collison_init
+        wp.init()
+        if wp.is_cuda_available():
+            device = "cuda:1"
+        else:
+            device = "cpu"
+        self.device = wp.get_device(device)
+        wp.set_device(self.device) 
+
         self.num = num # 质点数量；1
         self.ele = ele # 三角元；[[0, 1, 2], [1, 2, 3], [2, 3, 4]]
         self.pos_cur = pos_cur # 质点位置；[[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [2.0, 0.0, 0.0], [3.0, 0.0, 0.0], [4.0, 0.0, 0.0]]
@@ -147,21 +157,13 @@ class Mass:
         self.scale=1.0
 
         # contact parameters
-        self.contact_radius=0.05
-        self.contact_margin=0.05
+        self.contact_radius=0.08
+        self.contact_margin=0.08
 
         # 初始值
         #self.pos_cur[:, [1, 2]] = self.pos_cur[:, [2, 1]]
         self.pos_prev = self.pos_cur.copy()*self.scale
         self.vel_prev = self.vel_cur.copy()*self.scale
-
-        # warp_vbd_self_collison_init
-        wp.init()
-        if wp.is_cuda_available():
-            device = "cuda"
-        else:
-            device = "cpu"
-        self.device = wp.get_device(device)
 
         self.pos_warp = [wp.vec3(self.pos_cur[i,:]) for i in range(self.num)]
 
@@ -182,10 +184,10 @@ class Mass:
         )
         self.builder.add_ground_plane()
         self.builder.color(include_bending=True)
-        self.model = self.builder.finalize()
+        self.model = self.builder.finalize(self.device)
 
         # contact parameters
-        self.model.soft_contact_ke = 1.0e3
+        self.model.soft_contact_ke = 1.0e5
         self.model.soft_contact_kd = 1.0e-2 * self.DeBUG['Damping']
         self.model.soft_contact_mu = 0.2
 
@@ -442,13 +444,17 @@ def main():
         'Eigen': True,
         'line_search_max_step': 15,
         'line_search_control_residual': False,
+        'convergence_abs_tolerance': 1e-2,
+        'convergence_rel_tolerance': 1e-4,
         'numerical_precision_condition': True,
+        'numerical_precision_abs_tolerance': 1e-12,
+        'numerical_precision_rel_tolerance': 1e-16,
         'barrier_threshold': 0.0,
         'truncation_threshold': 0.0,
         'Damping': 0.0,
         'spring_type': 0,
         'forward_type': 1,
-        'record_name': 'cloth_twist_70x70_17x17'
+        'record_name': 'cloth_twist_70x70_0threshold'
     }
 
     # 仿真计算
