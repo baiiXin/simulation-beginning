@@ -4,6 +4,7 @@ import imageio
 import os # 用于处理路径
 import trimesh
 
+GROUND = True
 
 def select_file(folder, suffix=None):
     files = [
@@ -48,9 +49,8 @@ if os.environ.get("DISPLAY", "") == "":
     ps.set_allow_headless_backends(True)
 ps.init()
 ps.set_window_size(1280, 720)
-ps.set_render_resolution(1280, 720)
 ps.set_up_dir("z_up") # 确认你的数据是 Z 轴向上的
-ps.set_ground_plane_mode("shadow_only")
+ps.set_ground_plane_mode("none")
 
 # ==========================================
 # 3. 读取并准备数据
@@ -72,8 +72,9 @@ print(sphere_v.dtype, sphere_f.dtype)
 
 cloth1_v = mesh["cloth1"]["vertices"]
 cloth1_f = mesh["cloth1"]["triangles"]
-ground_v = mesh["ground"]["vertices"]
-ground_f = mesh["ground"]["triangles"]
+if GROUND:
+    ground_v = mesh["ground"]["vertices"]
+    ground_f = mesh["ground"]["triangles"]
 
 # 修复法向
 mesh_cloth1 = trimesh.Trimesh(vertices=cloth1_v, faces=cloth1_f, process=False)
@@ -97,14 +98,16 @@ ps.register_surface_mesh(
     smooth_shade=True
 )
 
-ground = ps.register_surface_mesh(
-    "Ground",
-    ground_v,
-    ground_f,
-    color=(0.6, 0.6, 0.6),
-    smooth_shade=True
-)
-ground.set_transparency(0.5)   # 0=不透明, 1=完全透明
+if GROUND:
+    ground = ps.register_surface_mesh(
+        "Ground",
+        ground_v,
+        ground_f,
+        color=(0.6, 0.6, 0.6),
+        smooth_shade=True
+    )
+    ground.set_transparency(0.5)   # 0=不透明, 1=完全透明
+
 
 # ==========================================
 # 4. 读取动画数据
@@ -126,7 +129,8 @@ def get_slice(name):
 
 slice_c1 = get_slice("cloth1")
 slice_sph = get_slice("sphere")
-slice_gnd = get_slice("ground")
+if GROUND:
+    slice_gnd = get_slice("ground")
 
 # ==========================================
 # 5. 动画回调逻辑
@@ -163,12 +167,14 @@ def callback():
     
     pos_cloth_move1 = current_frame_data[slice_c1]
     pos_sphere_move = current_frame_data[slice_sph]
-    pos_ground_move = current_frame_data[slice_gnd]
+    if GROUND:
+        pos_ground_move = current_frame_data[slice_gnd]
 
     # --- 2. 更新 Polyscope ---
     ps.get_surface_mesh("Cloth1").update_vertex_positions(pos_cloth_move1)
     ps.get_surface_mesh("Sphere").update_vertex_positions(pos_sphere_move)
-    ps.get_surface_mesh("Ground").update_vertex_positions(pos_ground_move)
+    if GROUND:
+        ps.get_surface_mesh("Ground").update_vertex_positions(pos_ground_move)
 
     # --- 3. 录制帧 ---
     screenshot = ps.screenshot_to_buffer(transparent_bg=False)
@@ -184,7 +190,9 @@ def callback():
 # 假设你的物体在 (0,0,0) 附近，且是 Z轴向上
 # camera_pos: x=3, y=-3, z=3 (从斜上方看)
 # target: 看向原点 (0,0,0)
-ps.look_at((6.0, 0.0, 6.0), (0.0, 0.0, 3.0))
+#ps.look_at((8.0, 0.0, 8.0), (0.0, 0.0, 3.0))
+ps.look_at((35.0, 0.0, 35.0), (0.0, 0.0, 8.0))
+#ps.look_at((-1.0, 0.0, -30.0), (0.0, 0.0, 8.0))
 
 # 开始录制
 ps.set_user_callback(callback)
